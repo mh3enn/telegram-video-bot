@@ -79,7 +79,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     caption="📥 این فایل توی Saved Messages ذخیره کن\n⏱ این فایل بعد از ۳۰ ثانیه حذف میشه"
 )
 
-    context.application.create_task(
+    asyncio.create_task(  # تغییر این قسمت
         delete_after_delay(
             context.bot,
             update.effective_chat.id,
@@ -116,4 +116,3 @@ if __name__ == "__main__":
     # اجرای مانیتورینگ در یک task جدید
     asyncio.create_task(monitor_json_file())
     app.run_polling()
-
