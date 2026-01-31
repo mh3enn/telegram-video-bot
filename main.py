@@ -15,10 +15,12 @@ if not os.path.exists(DB_FILE):
 with open(DB_FILE, "r") as f:
     data = json.load(f)
 print("داده‌های اولیه:", data)
-
+async def post_init(application):
+    application.create_task(monitor_json_file())
 # ================================
 # ذخیره file_id بر اساس لینک پست کانال
 # ================================
+
 def save_file_id(post_link, file_id):
     with open(DB_FILE, "r") as f:
         data = json.load(f)
@@ -105,7 +107,13 @@ async def monitor_json_file():
 # ================================
 # ساخت اپلیکیشن و هندلرها
 # ================================
-app = ApplicationBuilder().token(TOKEN).build()
+app = (
+    ApplicationBuilder()
+    .token(TOKEN)
+    .post_init(post_init)
+    .build()
+)
+
 app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.ChatType.CHANNEL, handle_channel_file))
 
@@ -114,5 +122,5 @@ app.add_handler(MessageHandler(filters.ChatType.CHANNEL, handle_channel_file))
 # ================================
 if __name__ == "__main__":
     # اجرای مانیتورینگ در یک task جدید
-    asyncio.create_task(monitor_json_file())
     app.run_polling()
+
