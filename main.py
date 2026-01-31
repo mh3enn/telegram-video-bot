@@ -34,7 +34,12 @@ print("داده‌های اولیه:", data)
 # ================================
 # ذخیره file_id بر اساس لینک پست کانال
 # ================================
-
+def build_missing_text(missing_count):
+    if missing_count == 1:
+        return "❌ هنوز عضو 1 کانال نشده‌اید\n👇 لطفاً ابتدا عضو شوید"
+    else:
+        return f"❌ هنوز عضو {missing_count} کانال نشده‌اید\n👇 لطفاً ابتدا عضو شوید"
+        
 def save_file_id(post_link, file_id):
     with open(DB_FILE, "r") as f:
         data = json.load(f)
@@ -108,10 +113,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # 2) کاربر عضو همه کانال‌ها نیست -> نمایش دکمه‌های لینک عضویت
     kb = await build_join_keyboard(bot, missing, key)
+    text = build_missing_text(len(missing))
+
     await bot.send_message(
-        chat_id=update.effective_chat.id,
-        text="برای دریافت فایل باید عضو کانال‌های اسپانسر زیر شوید. پس از عضویت روی «من عضو شدم» بزنید.",
-        reply_markup=kb
+       chat_id=update.effective_chat.id,
+       text=text,
+       reply_markup=kb
     )
 
 # —————— تابع کمکی: بررسی عضویت کاربر در کانال‌ها ——————
@@ -224,9 +231,10 @@ async def check_join_callback(update, context: ContextTypes.DEFAULT_TYPE):
     if missing:
         # اگر هنوز عضو نشده‌اند، فقط کانال‌های باقی‌مانده را نشان بدهیم
         kb = await build_join_keyboard(bot, missing, key)
+        text = build_missing_text(len(missing))
         await q.edit_message_text(
-            text="شما هنوز عضو همه کانال‌ها نشده‌اید. فقط کانال‌های باقی‌مانده را عضو شوید و دوباره دکمه را بزنید.",
-            reply_markup=kb
+           text=text,
+           reply_markup=kb
         )
         return
 
@@ -271,6 +279,7 @@ app.add_handler(CallbackQueryHandler(check_join_callback, pattern=r"^(check_join
 if __name__ == "__main__":
     # اجرای مانیتورینگ در یک task جدید
     app.run_polling()
+
 
 
 
