@@ -27,8 +27,6 @@ if not os.path.exists(DB_FILE):
 with open(DB_FILE, "r") as f:
     data = json.load(f)
 print("داده‌های اولیه:", data)
-async def post_init(application):
-    application.create_task(monitor_json_file())
 # ================================
 # ذخیره file_id بر اساس لینک پست کانال
 # ================================
@@ -72,8 +70,7 @@ async def delete_after_delay(bot, chat_id, message_id, delay=30):
 
 # ================================
 # مدیریت /start با پارامتر لینک
-# ===============================
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# ==============================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("لینک دریافت فایل نامعتبر است.")
@@ -194,6 +191,8 @@ async def monitor_json_file():
                 data = json.load(f)
             print("فایل JSON تغییر کرد:", data)
         await asyncio.sleep(1)
+async def post_init(application):
+    application.create_task(monitor_json_file())
 # —————— Callback handler برای دکمه "من عضو شدم" و پیغام‌های مرتبط ——————
 async def check_join_callback(update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -268,6 +267,7 @@ app.add_handler(CallbackQueryHandler(check_join_callback, pattern=r"^(check_join
 if __name__ == "__main__":
     # اجرای مانیتورینگ در یک task جدید
     app.run_polling()
+
 
 
 
