@@ -14,6 +14,10 @@ SPONSOR_CHANNELS = [
     "@fansonly90775",
     "@backup363746"
 ]
+CHANNEL_TITLES = {
+    "@fansonly90775": "📢 عضویت در کانال اصلی",
+    "@backup363746": "📢 عضویت در کانال پشتیبان"
+}
 #روش پیاده سازی در چنل اینوایت 
 #مقدار none لینک عضویت و دعوت هست
 # "-1001234567890": "https://t.me/joinchat/AAAAAExampleInvite",
@@ -167,7 +171,7 @@ async def build_join_keyboard(bot, missing_channels, key):
     buttons = []
     for ch in missing_channels:
         link = await get_channel_join_link(bot, ch)
-        label = f"عضویت در {str(ch)}"
+        label = CHANNEL_TITLES.get(ch, "📢 عضویت در کانال اسپانسر")
         if link:
             buttons.append([InlineKeyboardButton(label, url=link)])
         else:
@@ -267,6 +271,7 @@ app.add_handler(CallbackQueryHandler(check_join_callback, pattern=r"^(check_join
 if __name__ == "__main__":
     # اجرای مانیتورینگ در یک task جدید
     app.run_polling()
+
 
 
 
