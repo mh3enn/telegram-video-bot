@@ -114,5 +114,6 @@ app.add_handler(MessageHandler(filters.ChatType.CHANNEL, handle_channel_file))
 # ================================
 if __name__ == "__main__":
     # اجرای مانیتورینگ در یک task جدید
-    app.application.create_task(monitor_json_file())
+    asyncio.create_task(monitor_json_file())
     app.run_polling()
+
