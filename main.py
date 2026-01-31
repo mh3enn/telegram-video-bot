@@ -1,12 +1,24 @@
 import os
 import json
 import asyncio
-from telegram import Update
-from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes, CommandHandler
-
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes, CommandHandler, CallbackQueryHandler
 TOKEN = os.getenv("BOT_TOKEN")
 DB_FILE = "files.json"
 
+
+# —————— پیکربندی کانال‌های اسپانسر ——————
+#username ("@mychannel") برای کانال پابلیک
+# chat_id (-1001234567890) برای کانال خصوصی 
+SPONSOR_CHANNELS = [
+    "@fansonly90775",
+    "@backup363746"
+]
+#روش پیاده سازی در چنل اینوایت 
+#مقدار none لینک عضویت و دعوت هست
+# "-1001234567890": "https://t.me/joinchat/AAAAAExampleInvite",
+    # "@PublicChannelName": None 
+CHANNEL_INVITES = {}
 # ایجاد فایل ذخیره‌سازی اگر وجود نداشته باشد
 if not os.path.exists(DB_FILE):
     with open(DB_FILE, "w") as f:
@@ -62,6 +74,7 @@ async def delete_after_delay(bot, chat_id, message_id, delay=30):
 # مدیریت /start با پارامتر لینک
 # ===============================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("لینک دریافت فایل نامعتبر است.")
         return
@@ -75,21 +88,99 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ فایل پیدا نشد")
         return
 
-    msg = await context.bot.send_video(
-    chat_id=update.effective_chat.id,
-    video=data[key],
-    caption="📥 این فایل توی Saved Messages ذخیره کن\n⏱ این فایل بعد از ۳۰ ثانیه حذف میشه"
-)
+    user_id = update.effective_user.id
+    bot = context.bot
 
-    asyncio.create_task(  # تغییر این قسمت
-        delete_after_delay(
-            context.bot,
-            update.effective_chat.id,
-            msg.message_id,
-            30
+    # 1) بررسی عضویت در کانال‌های اسپانسر
+    missing = await check_user_membership(bot, user_id)
+
+    if not missing:
+        # همه عضو هستند -> فایل عادی ارسال می‌شود
+        msg = await bot.send_video(
+            chat_id=update.effective_chat.id,
+            video=data[key],
+            caption="📥 این فایل توی Saved Messages ذخیره کن\n⏱ این فایل بعد از ۳۰ ثانیه حذف میشه"
         )
+        # حذف پس از 30 ثانیه (task پس‌زمینه)
+        asyncio.create_task(delete_after_delay(bot, update.effective_chat.id, msg.message_id, 30))
+        return
+
+    # 2) کاربر عضو همه کانال‌ها نیست -> نمایش دکمه‌های لینک عضویت
+    kb = await build_join_keyboard(bot, missing, key)
+    await bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="برای دریافت فایل باید عضو کانال‌های اسپانسر زیر شوید. پس از عضویت روی «من عضو شدم» بزنید.",
+        reply_markup=kb
     )
 
+# —————— تابع کمکی: بررسی عضویت کاربر در کانال‌ها ——————
+async def check_user_membership(bot, user_id):
+    """
+    برمی‌گرداند: لیست channel_ids که کاربر هنوز عضو آنها نیست.
+    """
+    missing = []
+    for ch in SPONSOR_CHANNELS:
+        try:
+            # get_chat_member ممکن است Exception بدهد اگر ربات عضو کانال نباشد یا دسترسی نداشته باشد
+            member = await bot.get_chat_member(chat_id=ch, user_id=user_id)
+            status = member.status  # "member", "administrator", "left", ...
+            if status not in ("member", "administrator", "creator"):
+                missing.append(ch)
+        except Exception as e:
+            # اگر نتوانیم وضعیت را چک کنیم، فرض می‌کنیم عضو نیستند (و لاگ می‌زنیم)
+            print(f"⚠️ خطا در get_chat_member برای {ch}: {e}")
+            missing.append(ch)
+    return missing
+
+# —————— تابع کمکی: گرفتن لینک عضویت (یا ساختن آن) ——————
+async def get_channel_join_link(bot, channel):
+    """
+    برمی‌کوشد لینک دعوت بازگشتی برای کانال فراهم کند:
+    - اگر CHANNEL_INVITES[channel] وجود داشته باشد از آن استفاده می‌کند
+    - اگر کانال username داشته باشد از https://t.me/username استفاده می‌کند
+    - و در آخر تلاش می‌کند با create_chat_invite_link، لینک بسازد (نیاز به admin بودن ربات دارد)
+    """
+    # 1) از تنظیمات ثابت استفاده کن
+    if str(channel) in CHANNEL_INVITES and CHANNEL_INVITES[str(channel)]:
+        return CHANNEL_INVITES[str(channel)]
+
+    try:
+        chat = await bot.get_chat(chat_id=channel)
+        if getattr(chat, "username", None):
+            return f"https://t.me/{chat.username}"
+    except Exception as e:
+        # ممکن است برای چنل خصوصی این خطا بیاید؛ سپس سعی می‌کنیم invite بسازیم
+        print(f"info: couldn't get chat username for {channel}: {e}")
+
+    # 2) تلاش برای ساخت invite لینک (ربات باید admin باشد)
+    try:
+        invite = await bot.create_chat_invite_link(chat_id=channel)
+        return invite.invite_link
+    except Exception as e:
+        print(f"⚠️ couldn't create invite link for {channel}: {e}")
+        return None
+
+# —————— تابع کمکی: ساخت کیبورد join + دکمه Validate ——————
+async def build_join_keyboard(bot, missing_channels, key):
+    """
+    ساخت inline keyboard:
+    - برای هر کانال missing یک دکمه URL برای عضویت تولید می‌کند
+    - در آخر یک دکمه callback برای "من عضو شدم" با callback_data = "check_join:<key>"
+    """
+    buttons = []
+    for ch in missing_channels:
+        link = await get_channel_join_link(bot, ch)
+        label = f"عضویت در {str(ch)}"
+        if link:
+            buttons.append([InlineKeyboardButton(label, url=link)])
+        else:
+            # اگر لینک نداریم، دکمه‌ای بساز که کاربر را راهنمایی کند (بدون URL)
+            buttons.append([InlineKeyboardButton(f"لینک موجود نیست برای {str(ch)}", callback_data=f"no_link:{ch}:{key}")])
+
+    # دکمه "من عضو شدم" (صحت سنجی)
+    buttons.append([InlineKeyboardButton("✅ من عضو شدم", callback_data=f"check_join:{key}")])
+
+    return InlineKeyboardMarkup(buttons)
 # ================================
 # مانیتورینگ تغییر فایل JSON با async
 # ================================
@@ -103,7 +194,61 @@ async def monitor_json_file():
                 data = json.load(f)
             print("فایل JSON تغییر کرد:", data)
         await asyncio.sleep(1)
+# —————— Callback handler برای دکمه "من عضو شدم" و پیغام‌های مرتبط ——————
+async def check_join_callback(update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()  # پاسخدهی فوری به callback query (بدون متن)
 
+    data_cb = q.data  # مثال: "check_join:45" یا "no_link:-100123:45"
+    bot = context.bot
+    user_id = q.from_user.id
+
+    if data_cb.startswith("no_link:"):
+        # اگر کاربر روی دکمه‌ای که لینک نداشت زد، بهش بگو مدیر کانال باید invite بذاره.
+        _, ch, key = data_cb.split(":", 2)
+        await q.edit_message_text(f"لینک دعوت برای کانال {ch} موجود نیست. لطفاً به ادمین پیام دهید تا invite ایجاد کند.")
+        return
+
+    if not data_cb.startswith("check_join:"):
+        await q.answer("عمل نامشخص")
+        return
+
+    key = data_cb.split(":", 1)[1]
+
+    # دوباره برداریم که کدام کانال‌ها هنوز missing هستند
+    missing = await check_user_membership(bot, user_id)
+
+    if missing:
+        # اگر هنوز عضو نشده‌اند، فقط کانال‌های باقی‌مانده را نشان بدهیم
+        kb = await build_join_keyboard(bot, missing, key)
+        await q.edit_message_text(
+            text="شما هنوز عضو همه کانال‌ها نشده‌اید. فقط کانال‌های باقی‌مانده را عضو شوید و دوباره دکمه را بزنید.",
+            reply_markup=kb
+        )
+        return
+
+    # همه عضو شدند — پیام حاوی فایل را ارسال کن و پیام دستور را پاک کن
+    # ابتدا پیام دکمه را حذف کن (یا ویرایش)
+    try:
+        await q.delete_message()
+    except Exception:
+        pass
+
+    # ارسال فایل
+    with open(DB_FILE, "r") as f:
+        data_store = json.load(f)
+
+    if key not in data_store:
+        # نادر: کلید ناپدید شده
+        await bot.send_message(chat_id=user_id, text="متأسفم، فایل دیگر در دسترس نیست.")
+        return
+
+    msg = await bot.send_video(
+        chat_id=user_id,
+        video=data_store[key],
+        caption="📥 این فایل توی Saved Messages ذخیره کن\n⏱ این فایل بعد از ۳۰ ثانیه حذف میشه"
+    )
+    asyncio.create_task(delete_after_delay(bot, user_id, msg.message_id, 30))
 # ================================
 # ساخت اپلیکیشن و هندلرها
 # ================================
@@ -116,12 +261,13 @@ app = (
 
 app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.ChatType.CHANNEL, handle_channel_file))
-
+app.add_handler(CallbackQueryHandler(check_join_callback, pattern=r"^(check_join:|no_link:)"))
 # ================================
 # اجرای مانیتورینگ فایل با asyncio
 # ================================
 if __name__ == "__main__":
     # اجرای مانیتورینگ در یک task جدید
     app.run_polling()
+
 
 
