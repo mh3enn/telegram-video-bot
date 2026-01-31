@@ -6,7 +6,7 @@ import asyncio
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes, CommandHandler
 
-TOKEN = "8259658426:AAEN_v77T2bkitc85T9tbP5wBu1ybnmo7sg"
+TOKEN = os.getenv("BOT_TOKEN")
 DB_FILE = "files.json"
 
 # ایجاد فایل ذخیره‌سازی اگر وجود نداشته باشد
@@ -111,3 +111,4 @@ threading.Thread(target=monitor_json_file, daemon=True).start()
 # ================================
 if __name__ == "__main__":
     app.run_polling()
+
