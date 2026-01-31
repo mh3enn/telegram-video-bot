@@ -49,11 +49,18 @@ async def handle_channel_file(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     deep_link = f"https://t.me/Uploader11113221_bot?start={message_id}"
     print("✅ لینک دریافت فایل:", deep_link)
-
+#حذف پیام بعد ۳۰ ثانیه
+async def delete_after_delay(bot, chat_id, message_id, delay=30):
+    await asyncio.sleep(delay)
+    try:
+        await bot.delete_message(chat_id=chat_id, message_id=message_id)
+    except:
+        pass
 
 # ================================
 # مدیریت /start با پارامتر لینک
-# ================================
+# ===============================
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("لینک دریافت فایل نامعتبر است.")
@@ -69,16 +76,19 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     msg = await context.bot.send_video(
-        chat_id=update.effective_chat.id,
-        video=data[key],
-        caption="📥 این فایل را در Saved Messages ذخیره کنید\n\n⏳ این فایل بعد از ۳۰ ثانیه حذف می‌شود"
-    )
+    chat_id=update.effective_chat.id,
+    video=data[key],
+    caption="📥 این فایل توی Saved Messages ذخیره کن\n⏱ این فایل بعد از ۳۰ ثانیه حذف میشه"
+)
 
-    await asyncio.sleep(30)
-    await context.bot.delete_message(
-        chat_id=update.effective_chat.id,
-        message_id=msg.message_id
+context.application.create_task(
+    delete_after_delay(
+        context.bot,
+        update.effective_chat.id,
+        msg.message_id,
+        30
     )
+)
 
 # ================================
 # تابع مانیتورینگ تغییر فایل JSON
@@ -111,4 +121,5 @@ threading.Thread(target=monitor_json_file, daemon=True).start()
 # ================================
 if __name__ == "__main__":
     app.run_polling()
+
 
