@@ -39,13 +39,14 @@ def build_missing_text(missing_count):
         return "❌ هنوز جوین 1 از کانال های زیر نشدی\n👇 لطفاً برای دریافت فیلم جوین کانال های زیر بشید"
     else:
         return f"❌ هنوز جوین {missing_count} کانال زیر نشدی\n👇 لطفاً برای دریافت فیلم جوین کانال های زیر بشید"
-        
+"""       تابع ذخیره فایل
 def save_file_id(post_link, file_id):
     with open(DB_FILE, "r") as f:
         data = json.load(f)
     data[post_link] = file_id
     with open(DB_FILE, "w") as f:
         json.dump(data, f, indent=4)
+
 
 # ================================
 # دریافت فایل از کانال و ذخیره file_id
@@ -76,7 +77,7 @@ async def delete_after_delay(bot, chat_id, message_id, delay=30):
         await bot.delete_message(chat_id=chat_id, message_id=message_id)
     except:
         pass
-
+"""
 # ================================
 # مدیریت /start با پارامتر لینک
 # ==============================
@@ -142,13 +143,7 @@ async def check_user_membership(bot, user_id):
 
 # —————— تابع کمکی: گرفتن لینک عضویت (یا ساختن آن) ——————
 async def get_channel_join_link(bot, channel):
-    """
-    برمی‌کوشد لینک دعوت بازگشتی برای کانال فراهم کند:
-    - اگر CHANNEL_INVITES[channel] وجود داشته باشد از آن استفاده می‌کند
-    - اگر کانال username داشته باشد از https://t.me/username استفاده می‌کند
-    - و در آخر تلاش می‌کند با create_chat_invite_link، لینک بسازد (نیاز به admin بودن ربات دارد)
-    """
-    # 1) از تنظیمات ثابت استفاده کن
+   
     if str(channel) in CHANNEL_INVITES and CHANNEL_INVITES[str(channel)]:
         return CHANNEL_INVITES[str(channel)]
 
@@ -160,7 +155,6 @@ async def get_channel_join_link(bot, channel):
         # ممکن است برای چنل خصوصی این خطا بیاید؛ سپس سعی می‌کنیم invite بسازیم
         print(f"info: couldn't get chat username for {channel}: {e}")
 
-    # 2) تلاش برای ساخت invite لینک (ربات باید admin باشد)
     try:
         invite = await bot.create_chat_invite_link(chat_id=channel)
         return invite.invite_link
@@ -189,6 +183,7 @@ async def build_join_keyboard(bot, missing_channels, key):
     buttons.append([InlineKeyboardButton("✅ من عضو شدم", callback_data=f"check_join:{key}")])
 
     return InlineKeyboardMarkup(buttons)
+    """
 # ================================
 # مانیتورینگ تغییر فایل JSON با async
 # ================================
@@ -203,7 +198,7 @@ async def monitor_json_file():
             print("فایل JSON تغییر کرد:", data)
         await asyncio.sleep(1)
 async def post_init(application):
-    application.create_task(monitor_json_file())
+    application.create_task(monitor_json_file()) """
 # —————— Callback handler برای دکمه "من عضو شدم" و پیغام‌های مرتبط ——————
 async def check_join_callback(update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -271,7 +266,7 @@ app = (
 )
 
 app.add_handler(CommandHandler("start", start))
-app.add_handler(MessageHandler(filters.ChatType.CHANNEL, handle_channel_file))
+#app.add_handler(MessageHandler(filters.ChatType.CHANNEL, handle_channel_file)) هندلر مربوط به ذخیره از کانال
 app.add_handler(CallbackQueryHandler(check_join_callback, pattern=r"^(check_join:|no_link:)"))
 # ================================
 # اجرای مانیتورینگ فایل با asyncio
@@ -279,6 +274,7 @@ app.add_handler(CallbackQueryHandler(check_join_callback, pattern=r"^(check_join
 if __name__ == "__main__":
     # اجرای مانیتورینگ در یک task جدید
     app.run_polling()
+
 
 
 
