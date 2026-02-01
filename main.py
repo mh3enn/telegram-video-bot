@@ -261,7 +261,7 @@ async def check_join_callback(update, context: ContextTypes.DEFAULT_TYPE):
 app = (
     ApplicationBuilder()
     .token(TOKEN)
-    .post_init(post_init)
+    #.post_init(post_init)
     .build()
 )
 
@@ -274,6 +274,7 @@ app.add_handler(CallbackQueryHandler(check_join_callback, pattern=r"^(check_join
 if __name__ == "__main__":
     # اجرای مانیتورینگ در یک task جدید
     app.run_polling()
+
 
 
 
