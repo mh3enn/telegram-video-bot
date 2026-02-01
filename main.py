@@ -69,7 +69,7 @@ async def handle_channel_file(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     deep_link = f"https://t.me/Uploader11113221_bot?start={message_id}"
     print("✅ لینک دریافت فایل:", deep_link)
-
+"""
 # حذف پیام بعد ۳۰ ثانیه
 async def delete_after_delay(bot, chat_id, message_id, delay=30):
     await asyncio.sleep(delay)
@@ -77,7 +77,7 @@ async def delete_after_delay(bot, chat_id, message_id, delay=30):
         await bot.delete_message(chat_id=chat_id, message_id=message_id)
     except:
         pass
-"""
+
 # ================================
 # مدیریت /start با پارامتر لینک
 # ==============================
@@ -274,6 +274,7 @@ app.add_handler(CallbackQueryHandler(check_join_callback, pattern=r"^(check_join
 if __name__ == "__main__":
     # اجرای مانیتورینگ در یک task جدید
     app.run_polling()
+
 
 
 
