@@ -12,11 +12,11 @@ DB_FILE = "files.json"
 # chat_id (-1001234567890) برای کانال خصوصی 
 SPONSOR_CHANNELS = [
     "@fansonly90775",
-    "@backup363746"
+    "@FansonlyBackup"
 ]
 CHANNEL_TITLES = {
     "@fansonly90775": "📢 عضویت در کانال اصلی",
-    "@backup363746": "📢 عضویت در کانال پشتیبان"
+  "@FansonlyBackup": "📢 عضویت در کانال پشتیبان"
 }
 #روش پیاده سازی در چنل اینوایت 
 #مقدار none لینک عضویت و دعوت هست
@@ -274,6 +274,7 @@ app.add_handler(CallbackQueryHandler(check_join_callback, pattern=r"^(check_join
 if __name__ == "__main__":
     # اجرای مانیتورینگ در یک task جدید
     app.run_polling()
+
 
 
 
