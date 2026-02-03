@@ -334,16 +334,29 @@ async def check_join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             text="❌ متأسفانه فایل پیدا نشد."
         )
         return
-    await log_download(context.application.db, key, user_id)
+    row = await get_video_record(context.application.db, key)
+    if not row:
+        await q.edit_message_text("❌ متأسفانه فایل پیدا نشد.")
+        return
+
+    await q.edit_message_text("✅ عضویت شما تأیید شد، فایل در حال ارسال است...")
+
     msg = await bot.send_video(
         chat_id=user_id,
         video=row["file_id"],
-        caption="📥 این فایل را در Saved Messages ذخیره کنید\n⏱ این فایل بعد از ۳۰ ثانیه حذف می‌شود"
+        caption=(
+            f"🎬 {row['title'] or ''}\n\n"
+            "📥 این فایل را در Saved Messages ذخیره کنید\n"
+            "⏱ این فایل بعد از ۳۰ ثانیه حذف می‌شود\n\n"
+            "@FansonlyBackup"
+        )
     )
 
-    asyncio.create_task(
-        delete_after_delay(bot, user_id, msg.message_id, 30)
-    )
+await log_download(context.application.db, key, user_id)
+
+asyncio.create_task(
+    delete_after_delay(bot, user_id, msg.message_id, 30)
+)
 # ================================
 # ساخت اپلیکیشن و هندلرها
 # ================================
