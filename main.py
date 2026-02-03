@@ -121,7 +121,7 @@ async def handle_admin_group_media(update: Update, context: ContextTypes.DEFAULT
         thumb_id = None
 
     # شناسهٔ ذخیره (ما از chat_id:message_id استفاده می‌کنیم)
-    key = f"{msg.chat.id}:{msg.message_id}"
+    key = f"{msg.chat.id}_{msg.message_id}"
     bot_username = context.bot.username or (await context.bot.get_me()).username
     deep_link = f"https://t.me/{bot_username}?start={key}"
 
