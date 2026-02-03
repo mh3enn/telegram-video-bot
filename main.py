@@ -352,7 +352,7 @@ async def check_join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
     )
 
-await log_download(context.application.db, key, user_id)
+    await log_download(context.application.db, key, user_id)
 
 asyncio.create_task(
     delete_after_delay(bot, user_id, msg.message_id, 30)
