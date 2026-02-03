@@ -300,9 +300,8 @@ async def build_join_keyboard(bot, missing_channels, key):
 async def check_join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
-
-    data_cb = q.data
     bot = context.bot
+    data_cb = q.data
     user_id = q.from_user.id
 
     if data_cb.startswith("no_link:"):
