@@ -326,13 +326,6 @@ async def check_join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         text = build_missing_text(len(missing))
         await q.edit_message_text(text=text, reply_markup=kb)
         return
-
-    # همه کانال‌ها جوین شده‌اند
-    try:
-        await q.delete_message()
-    except:
-        pass
-
     # خواندن ویدیو از دیتابیس
     row = await get_video_record(context.application.db, key)
     if not row:
