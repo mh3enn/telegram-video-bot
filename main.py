@@ -292,7 +292,7 @@ async def build_join_keyboard(bot, missing_channels, key):
             buttons.append([InlineKeyboardButton(f"لینک موجود نیست برای {str(ch)}", callback_data=f"no_link:{ch}:{key}")])
 
     # دکمه "من عضو شدم" (صحت سنجی)
-    buttons.append([InlineKeyboardButton("✅ من عضو شدم", callback_data=f"check_join:{key}")])
+    buttons.append([InlineKeyboardButton("🔄 بررسی مجدد عضویت", callback_data=f"check_join:{key}")])
 
     return InlineKeyboardMarkup(buttons)
     
