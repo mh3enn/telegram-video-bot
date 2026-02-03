@@ -32,6 +32,9 @@ CHANNEL_INVITES = {}
 # =======================
 DB_TABLE = "videos"
 
+def is_admin(user_id: int) -> bool:
+    return user_id == int(os.getenv("BOT_ADMIN_ID", "0"))
+
 async def init_db_schema(pool):
     async with pool.acquire() as conn:
         await conn.execute(f"""
@@ -62,6 +65,21 @@ async def save_video_record(pool, message_id, file_id, title, caption, deep_link
             RETURNING id, message_id;
         """, str(message_id), file_id, title, caption, deep_link, thumbnail_file_id, datetime.now(ZoneInfo("Asia/Tehran")))
         return row  # row['id'], row['message_id']
+    
+async def get_total_videos(pool):
+    async with pool.acquire() as conn:
+        return await conn.fetchval(f"SELECT COUNT(*) FROM {DB_TABLE}")
+
+async def get_total_downloads(pool):
+    async with pool.acquire() as conn:
+        return await conn.fetchval("SELECT COUNT(*) FROM download_logs")
+
+async def get_today_downloads(pool):
+    async with pool.acquire() as conn:
+        return await conn.fetchval("""
+            SELECT COUNT(*) FROM download_logs
+            WHERE downloaded_at::date = CURRENT_DATE
+        """)
 
 async def get_video_record(pool, message_id):
     async with pool.acquire() as conn:
@@ -88,6 +106,26 @@ async def log_download(pool, video_key, user_id):
             video_key,
             user_id
         )
+
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+
+    if not is_admin(user_id):
+        await update.message.reply_text("⛔ دسترسی ندارید")
+        return
+
+    pool = context.application.db
+
+    total_videos = await get_total_videos(pool)
+    total_downloads = await get_total_downloads(pool)
+    today_downloads = await get_today_downloads(pool)
+
+    await update.message.reply_text(
+        "📊 آمار ربات\n\n"
+        f"🎬 تعداد ویدیوها: {total_videos}\n"
+        f"⬇️ کل دانلودها: {total_downloads}\n"
+        f"📅 دانلودهای امروز: {today_downloads}"
+    )
 
 # ================================
 # ذخیره file_id بر اساس لینک پست کانال
@@ -365,7 +403,7 @@ app = (
     .post_init(on_startup)
     .build()
 )
-
+app.add_handler(CommandHandler("stats", stats))
 app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(tg_filters.Chat(ADMIN_GROUP_ID) & (tg_filters.VIDEO | tg_filters.Document.ALL), handle_admin_group_media))
 app.add_handler(CallbackQueryHandler(check_join_callback, pattern=r"^(check_join:|no_link:)"))
