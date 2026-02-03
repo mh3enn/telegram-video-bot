@@ -1,11 +1,14 @@
 import os
 import json
 import asyncio
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes, CommandHandler, CallbackQueryHandler
+from telegram.ext import filters as tg_filters
 TOKEN = os.getenv("BOT_TOKEN")
-DB_FILE = "files.json"
-
+ADMIN_GROUP_ID = os.getenv("ADMIN_GROUP_ID")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # —————— پیکربندی کانال‌های اسپانسر ——————
 #username ("@mychannel") برای کانال پابلیک
@@ -23,14 +26,47 @@ CHANNEL_TITLES = {
 # "-1001234567890": "https://t.me/joinchat/AAAAAExampleInvite",
     # "@PublicChannelName": None 
 CHANNEL_INVITES = {}
-# ایجاد فایل ذخیره‌سازی اگر وجود نداشته باشد
-if not os.path.exists(DB_FILE):
-    with open(DB_FILE, "w") as f:
-        json.dump({}, f)
+# =======================
+# دیتابیس: schema + helpers
+# =======================
+DB_TABLE = "videos"
 
-with open(DB_FILE, "r") as f:
-    data = json.load(f)
-print("داده‌های اولیه:", data)
+async def init_db_schema(pool):
+    async with pool.acquire() as conn:
+        await conn.execute(f"""
+            CREATE TABLE IF NOT EXISTS {DB_TABLE} (
+                id SERIAL PRIMARY KEY,
+                message_id TEXT UNIQUE,
+                file_id TEXT NOT NULL,
+                title TEXT,
+                caption TEXT,
+                deep_link TEXT,
+                thumbnail_file_id TEXT,
+                created_at TIMESTAMPTZ DEFAULT now()
+            );
+        """)
+
+async def save_video_record(pool, message_id, file_id, title, caption, deep_link, thumbnail_file_id=None):
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(f"""
+            INSERT INTO {DB_TABLE} (message_id, file_id, title, caption, deep_link, thumbnail_file_id, created_at)
+            VALUES ($1,$2,$3,$4,$5,$6,$7)
+            ON CONFLICT (message_id) DO UPDATE
+            SET file_id = EXCLUDED.file_id,
+                title = EXCLUDED.title,
+                caption = EXCLUDED.caption,
+                deep_link = EXCLUDED.deep_link,
+                thumbnail_file_id = EXCLUDED.thumbnail_file_id,
+                created_at = EXCLUDED.created_at
+            RETURNING id, message_id;
+        """, str(message_id), file_id, title, caption, deep_link, thumbnail_file_id, datetime.now(ZoneInfo("Asia/Tehran")))
+        return row  # row['id'], row['message_id']
+
+async def get_video_record(pool, message_id):
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(f"SELECT * FROM {DB_TABLE} WHERE message_id = $1", str(message_id))
+        return row
+
 # ================================
 # ذخیره file_id بر اساس لینک پست کانال
 # ================================
@@ -47,29 +83,80 @@ def save_file_id(post_link, file_id):
     with open(DB_FILE, "w") as f:
         json.dump(data, f, indent=4)
 
-
-# ================================
-# دریافت فایل از کانال و ذخیره file_id
-# ================================
-async def handle_channel_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    post = update.channel_post
-    if not post or not post.video:
+"""
+# ----------------------------------------
+# Handler جدید: دریافت فایل از گروه ادمین
+# ----------------------------------------
+async def handle_admin_group_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = update.message
+    if not msg:
         return
 
-    file_id = post.video.file_id
-    message_id = post.message_id  # 👈 این خط حیاتی بود
+    # فقط از گروه مشخص پردازش کن
+    if msg.chat.id != ADMIN_GROUP_ID:
+        return
 
-    with open(DB_FILE, "r") as f:
-        data = json.load(f)
+    # فقط اگر پیام حاوی ویدیو یا داکیومنت باشه ادامه بده
+    media = None
+    if msg.video:
+        media = msg.video
+        media_type = "video"
+    elif msg.document:
+        media = msg.document
+        media_type = "document"
+    else:
+        return
 
-    data[str(message_id)] = file_id
+    # اگر می‌خواهی فقط ادمین‌ها بتوانند ارسال کنند:
+    try:
+        member = await context.bot.get_chat_member(chat_id=ADMIN_GROUP_ID, user_id=msg.from_user.id)
+        if member.status not in ("creator", "administrator"):
+            # اگر فرستنده ادمین نیست، نادیده بگیر
+            return
+    except Exception as e:
+        print("Could not check sender admin status:", e)
+        # بهتر است در این حالت پیام را نپذیریم تا امنیت حفظ شود
+        return
 
-    with open(DB_FILE, "w") as f:
-        json.dump(data, f, indent=4)
+    file_id = media.file_id
+    caption = msg.caption or ""
+    title = caption.splitlines()[0].strip() if caption else (getattr(media, "file_name", None) or "بدون عنوان")
+    thumb_id = None
+    try:
+        if getattr(media, "thumb", None):
+            thumb_id = media.thumb.file_id
+    except Exception:
+        thumb_id = None
 
-    deep_link = f"https://t.me/Uploader11113221_bot?start={message_id}"
-    print("✅ لینک دریافت فایل:", deep_link)
-"""
+    # شناسهٔ ذخیره (ما از chat_id:message_id استفاده می‌کنیم)
+    key = f"{msg.chat.id}:{msg.message_id}"
+    deep_link = f"https://t.me/{context.bot.username}?start={key}"
+
+    # ذخیره در DB
+    try:
+        row = await save_video_record(context.application.db, message_id=key, file_id=file_id,
+                                      title=title, caption=caption, deep_link=deep_link, thumbnail_file_id=thumb_id)
+        saved_id = row['id'] if row else key
+    except Exception as e:
+        print("DB write failed:", e)
+        # اگر خواستی می‌تونیم fallback به JSON بذاریم؛ اما پیشنهاد می‌کنم اول DB درست کار کنه
+        saved_id = key
+
+    # پست دوبارهٔ ویدئو در گروه برای آرشیو / دسترسی
+    try:
+        await context.bot.send_video(
+            chat_id=ADMIN_GROUP_ID,
+            video=file_id,
+            caption=f"🎬 {title}\n\n🔗 لینک دریافت: {deep_link}\n\n{caption}"
+        )
+    except Exception as e:
+        print("Failed to re-post video into admin group:", e)
+        # fallback: فقط پیام با لینک
+        await context.bot.send_message(chat_id=ADMIN_GROUP_ID, text=f"🎬 {title}\n\n🔗 لینک دریافت: {deep_link}\n\n{caption}")
+
+    print("Saved media:", saved_id, file_id)
+
+
 # حذف پیام بعد ۳۰ ثانیه
 async def delete_after_delay(bot, chat_id, message_id, delay=30):
     await asyncio.sleep(delay)
@@ -77,6 +164,12 @@ async def delete_after_delay(bot, chat_id, message_id, delay=30):
         await bot.delete_message(chat_id=chat_id, message_id=message_id)
     except:
         pass
+async def on_startup(application):
+    # ایجاد connection pool
+    application.db = await asyncpg.create_pool(DATABASE_URL)
+    # ساخت schema (اگر لازم بود)
+    await init_db_schema(application.db)
+    print("DB pool created and schema ensured")
 
 # ================================
 # مدیریت /start با پارامتر لینک
@@ -87,40 +180,29 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     key = context.args[0]
-
-    with open(DB_FILE, "r") as f:
-        data = json.load(f)
-
-    if key not in data:
+    # جدول DB را بخوان
+    row = await get_video_record(context.application.db, key)
+    if not row:
         await update.message.reply_text("❌ فایل پیدا نشد")
         return
 
     user_id = update.effective_user.id
     bot = context.bot
-
-    # 1) بررسی عضویت در کانال‌های اسپانسر
     missing = await check_user_membership(bot, user_id)
 
     if not missing:
-        # همه عضو هستند -> فایل عادی ارسال می‌شود
         msg = await bot.send_video(
             chat_id=update.effective_chat.id,
-            video=data[key],
+            video=row['file_id'],
             caption="📥 این فایل توی Saved Messages ذخیره کن\n⏱ این فایل بعد از ۳۰ ثانیه حذف میشه"
         )
-        # حذف پس از 30 ثانیه (task پس‌زمینه)
         asyncio.create_task(delete_after_delay(bot, update.effective_chat.id, msg.message_id, 30))
         return
 
-    # 2) کاربر عضو همه کانال‌ها نیست -> نمایش دکمه‌های لینک عضویت
     kb = await build_join_keyboard(bot, missing, key)
     text = build_missing_text(len(missing))
+    await bot.send_message(chat_id=update.effective_chat.id, text=text, reply_markup=kb)
 
-    await bot.send_message(
-       chat_id=update.effective_chat.id,
-       text=text,
-       reply_markup=kb
-    )
 
 # —————— تابع کمکی: بررسی عضویت کاربر در کانال‌ها ——————
 async def check_user_membership(bot, user_id):
@@ -183,7 +265,7 @@ async def build_join_keyboard(bot, missing_channels, key):
     buttons.append([InlineKeyboardButton("✅ من عضو شدم", callback_data=f"check_join:{key}")])
 
     return InlineKeyboardMarkup(buttons)
-    """
+    
 # ================================
 # مانیتورینگ تغییر فایل JSON با async
 # ================================
@@ -198,7 +280,7 @@ async def monitor_json_file():
             print("فایل JSON تغییر کرد:", data)
         await asyncio.sleep(1)
 async def post_init(application):
-    application.create_task(monitor_json_file()) """
+    application.create_task(monitor_json_file()) 
 # —————— Callback handler برای دکمه "من عضو شدم" و پیغام‌های مرتبط ——————
 async def check_join_callback(update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -261,12 +343,12 @@ async def check_join_callback(update, context: ContextTypes.DEFAULT_TYPE):
 app = (
     ApplicationBuilder()
     .token(TOKEN)
-    #.post_init(post_init)
+    .post_init(on_startup)
     .build()
 )
 
 app.add_handler(CommandHandler("start", start))
-#app.add_handler(MessageHandler(filters.ChatType.CHANNEL, handle_channel_file)) هندلر مربوط به ذخیره از کانال
+app.add_handler(MessageHandler(tg_filters.Chat(ADMIN_GROUP_ID) & (tg_filters.VIDEO | tg_filters.Document.ALL), handle_admin_group_media))
 app.add_handler(CallbackQueryHandler(check_join_callback, pattern=r"^(check_join:|no_link:)"))
 # ================================
 # اجرای مانیتورینگ فایل با asyncio
@@ -274,15 +356,3 @@ app.add_handler(CallbackQueryHandler(check_join_callback, pattern=r"^(check_join
 if __name__ == "__main__":
     # اجرای مانیتورینگ در یک task جدید
     app.run_polling()
-
-
-
-
-
-
-
-
-
-
-
-
