@@ -169,14 +169,18 @@ async def on_startup(application):
 # ==============================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text("لینک دریافت فایل نامعتبر است.")
+        await update.message.reply_text( "👋 سلام!\n\n"
+            "📥 این ربات برای دریافت ویدیوها استفاده می‌شود.\n"
+            "🔗لطفا برای دریافت فیلم عضو کانال زیر بشین\n\n"
+            "@FansonlyBackup"
+        )
         return
 
     key = context.args[0]
     # جدول DB را بخوان
     row = await get_video_record(context.application.db, key)
     if not row:
-        await update.message.reply_text("❌ فایل پیدا نشد")
+        await update.message.reply_text("❌ فایل موردنظر پیدا نشد")
         return
 
     user_id = update.effective_user.id
@@ -187,16 +191,25 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg = await bot.send_video(
             chat_id=update.effective_chat.id,
             video=row['file_id'],
-            caption="📥 این فایل توی Saved Messages ذخیره کن\n⏱ این فایل بعد از ۳۰ ثانیه حذف میشه"
+            caption=(
+                "📥 این فایل توی Saved Messages ذخیره کن\n"
+                "این فایل بعد از ۳۰ ثانیه حذف میشه ⏱\n\n"
+                "@FansonlyBackup"
+            )
         )
         asyncio.create_task(delete_after_delay(bot, update.effective_chat.id, msg.message_id, 30))
         return
 
     kb = await build_join_keyboard(bot, missing, key)
-    text = build_missing_text(len(missing))
-    await bot.send_message(chat_id=update.effective_chat.id, text=text, reply_markup=kb)
-
-
+   text = (
+        f"❌ هنوز جوین {len(missing)} کانال هستید\n"
+        "👇 لطفاً برای دریافت فایل در کانال‌های زیر عضو شوید"
+    )
+    await bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=text,
+        reply_markup=kb
+    )
 # —————— تابع کمکی: بررسی عضویت کاربر در کانال‌ها ——————
 async def check_user_membership(bot, user_id):
     """
@@ -333,5 +346,6 @@ app.add_handler(CallbackQueryHandler(check_join_callback, pattern=r"^(check_join
 if __name__ == "__main__":
     # اجرای مانیتورینگ در یک task جدید
     app.run_polling()
+
 
 
