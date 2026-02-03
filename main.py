@@ -8,7 +8,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes, CommandHandler, CallbackQueryHandler
 from telegram.ext import filters as tg_filters
 TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_GROUP_ID = os.getenv("ADMIN_GROUP_ID")
+ADMIN_GROUP_ID = int(os.getenv("ADMIN_GROUP_ID"))
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 # —————— پیکربندی کانال‌های اسپانسر ——————
@@ -76,15 +76,6 @@ def build_missing_text(missing_count):
         return "❌ هنوز جوین 1 از کانال های زیر نشدی\n👇 لطفاً برای دریافت فیلم جوین کانال های زیر بشید"
     else:
         return f"❌ هنوز جوین {missing_count} کانال زیر نشدی\n👇 لطفاً برای دریافت فیلم جوین کانال های زیر بشید"
-"""       تابع ذخیره فایل
-def save_file_id(post_link, file_id):
-    with open(DB_FILE, "r") as f:
-        data = json.load(f)
-    data[post_link] = file_id
-    with open(DB_FILE, "w") as f:
-        json.dump(data, f, indent=4)
-
-"""
 # ----------------------------------------
 # Handler جدید: دریافت فایل از گروه ادمین
 # ----------------------------------------
@@ -131,7 +122,8 @@ async def handle_admin_group_media(update: Update, context: ContextTypes.DEFAULT
 
     # شناسهٔ ذخیره (ما از chat_id:message_id استفاده می‌کنیم)
     key = f"{msg.chat.id}:{msg.message_id}"
-    deep_link = f"https://t.me/{context.bot.username}?start={key}"
+    bot_username = context.bot.username or (await context.bot.get_me()).username
+    deep_link = f"https://t.me/{bot_username}?start={key}"
 
     # ذخیره در DB
     try:
@@ -267,77 +259,61 @@ async def build_join_keyboard(bot, missing_channels, key):
 
     return InlineKeyboardMarkup(buttons)
     
-# ================================
-# مانیتورینگ تغییر فایل JSON با async
-# ================================
-async def monitor_json_file():
-    last_modified = os.path.getmtime(DB_FILE)
-    while True:
-        current_modified = os.path.getmtime(DB_FILE)
-        if current_modified != last_modified:
-            last_modified = current_modified
-            with open(DB_FILE, "r") as f:
-                data = json.load(f)
-            print("فایل JSON تغییر کرد:", data)
-        await asyncio.sleep(1)
-async def post_init(application):
-    application.create_task(monitor_json_file()) 
 # —————— Callback handler برای دکمه "من عضو شدم" و پیغام‌های مرتبط ——————
-async def check_join_callback(update, context: ContextTypes.DEFAULT_TYPE):
+async def check_join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()  # پاسخدهی فوری به callback query (بدون متن)
+    await q.answer()
 
-    data_cb = q.data  # مثال: "check_join:45" یا "no_link:-100123:45"
+    data_cb = q.data
     bot = context.bot
     user_id = q.from_user.id
 
     if data_cb.startswith("no_link:"):
-        # اگر کاربر روی دکمه‌ای که لینک نداشت زد، بهش بگو مدیر کانال باید invite بذاره.
-        _, ch, key = data_cb.split(":", 2)
-        await q.edit_message_text(f"لینک دعوت برای کانال {ch} موجود نیست. لطفاً به ادمین پیام دهید تا invite ایجاد کند.")
+        _, ch, _ = data_cb.split(":", 2)
+        await q.edit_message_text(
+            f"❌ لینک عضویت برای کانال {ch} موجود نیست.\n"
+            "لطفاً به ادمین اطلاع دهید."
+        )
         return
 
     if not data_cb.startswith("check_join:"):
-        await q.answer("عمل نامشخص")
         return
 
     key = data_cb.split(":", 1)[1]
 
-    # دوباره برداریم که کدام کانال‌ها هنوز missing هستند
+    # بررسی مجدد عضویت
     missing = await check_user_membership(bot, user_id)
 
     if missing:
-        # اگر هنوز عضو نشده‌اند، فقط کانال‌های باقی‌مانده را نشان بدهیم
         kb = await build_join_keyboard(bot, missing, key)
         text = build_missing_text(len(missing))
-        await q.edit_message_text(
-           text=text,
-           reply_markup=kb
-        )
+        await q.edit_message_text(text=text, reply_markup=kb)
         return
 
-    # همه عضو شدند — پیام حاوی فایل را ارسال کن و پیام دستور را پاک کن
-    # ابتدا پیام دکمه را حذف کن (یا ویرایش)
+    # همه کانال‌ها جوین شده‌اند
     try:
         await q.delete_message()
-    except Exception:
+    except:
         pass
 
-    # ارسال فایل
-    with open(DB_FILE, "r") as f:
-        data_store = json.load(f)
-
-    if key not in data_store:
-        # نادر: کلید ناپدید شده
-        await bot.send_message(chat_id=user_id, text="متأسفم، فایل دیگر در دسترس نیست.")
+    # خواندن ویدیو از دیتابیس
+    row = await get_video_record(context.application.db, key)
+    if not row:
+        await bot.send_message(
+            chat_id=user_id,
+            text="❌ متأسفانه فایل پیدا نشد."
+        )
         return
 
     msg = await bot.send_video(
         chat_id=user_id,
-        video=data_store[key],
-        caption="📥 این فایل توی Saved Messages ذخیره کن\n⏱ این فایل بعد از ۳۰ ثانیه حذف میشه"
+        video=row["file_id"],
+        caption="📥 این فایل را در Saved Messages ذخیره کنید\n⏱ این فایل بعد از ۳۰ ثانیه حذف می‌شود"
     )
-    asyncio.create_task(delete_after_delay(bot, user_id, msg.message_id, 30))
+
+    asyncio.create_task(
+        delete_after_delay(bot, user_id, msg.message_id, 30)
+    )
 # ================================
 # ساخت اپلیکیشن و هندلرها
 # ================================
@@ -357,4 +333,5 @@ app.add_handler(CallbackQueryHandler(check_join_callback, pattern=r"^(check_join
 if __name__ == "__main__":
     # اجرای مانیتورینگ در یک task جدید
     app.run_polling()
+
 
