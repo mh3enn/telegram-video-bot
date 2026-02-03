@@ -193,7 +193,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             video=row['file_id'],
             caption=(
                 "📥 این فایل توی Saved Messages ذخیره کن\n"
-                "این فایل بعد از ۳۰ ثانیه حذف میشه ⏱\n\n"
+                "فایل بعد از ۳۰ ثانیه حذف میشه ⏱\n\n"
                 "@FansonlyBackup"
             )
         )
@@ -346,7 +346,3 @@ app.add_handler(CallbackQueryHandler(check_join_callback, pattern=r"^(check_join
 if __name__ == "__main__":
     # اجرای مانیتورینگ در یک task جدید
     app.run_polling()
-
-
-
-
