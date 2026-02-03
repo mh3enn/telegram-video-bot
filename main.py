@@ -67,6 +67,27 @@ async def get_video_record(pool, message_id):
     async with pool.acquire() as conn:
         row = await conn.fetchrow(f"SELECT * FROM {DB_TABLE} WHERE message_id = $1", str(message_id))
         return row
+    
+async def init_download_log_schema(pool):
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS download_logs (
+                id SERIAL PRIMARY KEY,
+                video_key TEXT NOT NULL,
+                user_id BIGINT NOT NULL,
+                downloaded_at TIMESTAMPTZ DEFAULT now()
+            );
+        """)
+async def log_download(pool, video_key, user_id):
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO download_logs (video_key, user_id)
+            VALUES ($1, $2)
+            """,
+            video_key,
+            user_id
+        )
 
 # ================================
 # ذخیره file_id بر اساس لینک پست کانال
@@ -158,11 +179,12 @@ async def delete_after_delay(bot, chat_id, message_id, delay=30):
     except:
         pass
 async def on_startup(application):
-    # ایجاد connection pool
     application.db = await asyncpg.create_pool(DATABASE_URL)
-    # ساخت schema (اگر لازم بود)
+
     await init_db_schema(application.db)
-    print("DB pool created and schema ensured")
+    await init_download_log_schema(application.db)
+
+    print("DB pool & schemas ready")
 
 # ================================
 # مدیریت /start با پارامتر لینک
@@ -196,7 +218,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "فایل بعد از ۳۰ ثانیه حذف میشه ⏱\n\n"
                 "@FansonlyBackup"
             )
+            
         )
+        await log_download(context.application.db, key, user_id)
         asyncio.create_task(delete_after_delay(bot, update.effective_chat.id, msg.message_id, 30))
         return
 
@@ -317,7 +341,7 @@ async def check_join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             text="❌ متأسفانه فایل پیدا نشد."
         )
         return
-
+    await log_download(context.application.db, key, user_id)
     msg = await bot.send_video(
         chat_id=user_id,
         video=row["file_id"],
