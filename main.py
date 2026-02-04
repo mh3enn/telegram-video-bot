@@ -2,6 +2,7 @@ import os
 import json
 import asyncio
 import asyncpg
+import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -436,8 +437,8 @@ app = (
     .post_init(on_startup)
     .build()
 )
-app.add_handler(CommandHandler("stats", stats))
 app.add_handler(CommandHandler("start", start))
+app.add_handler(CommandHandler("stats", stats))
 app.add_handler(MessageHandler(tg_filters.Chat(ADMIN_GROUP_ID) & (tg_filters.VIDEO | tg_filters.Document.ALL), handle_admin_group_media))
 app.add_handler(CallbackQueryHandler(check_join_callback, pattern=r"^(check_join:|no_link:)"))
 # ================================
