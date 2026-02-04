@@ -295,34 +295,26 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 # —————— تابع کمکی: بررسی عضویت کاربر در کانال‌ها ——————
 async def check_user_membership(bot, user_id):
-    """
-    خروجی: لیست کانال‌هایی که کاربر عضو آن‌ها نیست
-    """
+    now = time.time()
+
+    if user_id in membership_cache:
+        cached = membership_cache[user_id]
+        if now - cached["ts"] < CACHE_TTL:
+            return cached["missing"]
+
     missing = []
-
     for ch in SPONSOR_CHANNELS:
-        # 1️⃣ اول cache
-        cached = get_cached_membership(user_id, ch)
-        if cached is not None:
-            if not cached:
-                missing.append(ch)
-            continue
-
-        # 2️⃣ اگر cache نبود → API
         try:
-            member = await bot.get_chat_member(chat_id=ch, user_id=user_id)
-            status = member.status
-            is_member = status in ("member", "administrator", "creator")
-        except Exception as e:
-            print(f"⚠️ get_chat_member error {ch}: {e}")
-            is_member = False
-
-        # 3️⃣ ذخیره در cache
-        set_cached_membership(user_id, ch, is_member)
-
-        if not is_member:
+            member = await bot.get_chat_member(ch, user_id)
+            if member.status not in ("member", "administrator", "creator"):
+                missing.append(ch)
+        except Exception:
             missing.append(ch)
 
+    membership_cache[user_id] = {
+        "missing": missing,
+        "ts": now
+    }
     return missing
 
 # —————— تابع کمکی: گرفتن لینک عضویت (یا ساختن آن) ——————
