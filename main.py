@@ -153,10 +153,6 @@ async def delete_after_delay(bot, chat_id, message_id, delay=30):
         pass
 async def on_startup(application):
     await init_db(application, DATABASE_URL)
-
-    await init_db_schema(application.db)
-    await init_download_log_schema(application.db)
-
     print("DB pool & schemas ready")
 
 # ================================
@@ -352,4 +348,5 @@ app.add_handler(CallbackQueryHandler(check_join_callback, pattern=r"^(check_join
 if __name__ == "__main__":
     # اجرای مانیتورینگ در یک task جدید
     app.run_polling()
+
 
