@@ -42,7 +42,7 @@ def set_cached_membership(user_id, channel, is_member):
     MEMBERSHIP_CACHE[(user_id, channel)] = (is_member, time.time())
 
 def is_admin(user_id: int) -> bool:
-    return user_id == int(os.getenv("BOT_ADMIN_ID", "0"))
+    return user_id == BOT_ADMIN_ID
 
 async def init_db_schema(pool):
     async with pool.acquire() as conn:
