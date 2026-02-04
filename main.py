@@ -249,7 +249,7 @@ async def check_join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     asyncio.create_task(
         delete_after_delay(bot, user_id, msg.message_id, 30)
     )
-    async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     """
     Error handler سراسری برای کل ربات
     """
@@ -258,12 +258,12 @@ async def check_join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     print("❌ Exception caught:")
     print(error)
 
-    # اگر خطا مربوط به Conflict (چند instance) بود
+    # خطای Conflict (چند instance)
     if "Conflict" in str(error):
         print("⚠️ Bot conflict detected (multiple instances running)")
         return
 
-    # اگر update وجود داشت و کاربر داشت
+    # پیام دوستانه به کاربر (اگر ممکن بود)
     try:
         if update and isinstance(update, Update):
             if update.effective_chat:
@@ -272,7 +272,6 @@ async def check_join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
                     text="⚠️ خطایی رخ داد. لطفاً چند لحظه بعد دوباره تلاش کنید."
                 )
     except Exception:
-        # حتی اگر ارسال پیام هم شکست خورد، ربات نباید کرش کند
         pass
 # ================================
 # ساخت اپلیکیشن و هندلرها
@@ -294,8 +293,3 @@ app.add_error_handler(error_handler)
 if __name__ == "__main__":
     # اجرای مانیتورینگ در یک task جدید
     app.run_polling()
-
-
-
-
-
