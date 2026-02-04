@@ -1,4 +1,3 @@
-import json
 import asyncio
 import time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -21,11 +20,9 @@ from config import (
     SPONSOR_CHANNELS,
     CHANNEL_TITLES,
     CHANNEL_INVITES,
-    CACHE_TTL,
 )
-
-MEMBERSHIP_CACHE = {}
-
+from cache import get_cached_membership, set_cached_membership
+from utils import build_join_keyboard, build_missing_text
 def is_admin(user_id: int) -> bool:
     return user_id == BOT_ADMIN_ID
 
@@ -49,14 +46,6 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"📅 دانلودهای امروز: {today_downloads}"
     )
 
-# ================================
-# ذخیره file_id بر اساس لینک پست کانال
-# ================================
-def build_missing_text(missing_count):
-    if missing_count == 1:
-        return "❌ هنوز جوین 1 از کانال های زیر نشدی\n👇 لطفاً برای دریافت فیلم جوین کانال های زیر بشید"
-    else:
-        return f"❌ هنوز جوین {missing_count} کانال زیر نشدی\n👇 لطفاً برای دریافت فیلم جوین کانال های زیر بشید"
 # ----------------------------------------
 # Handler جدید: دریافت فایل از گروه ادمین
 # ----------------------------------------
@@ -190,14 +179,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text=text,
         reply_markup=kb
     )
-# —————— تابع کمکی: بررسی عضویت کاربر در کانال‌ها ——————
 async def check_user_membership(bot, user_id):
-    now = time.time()
-
-    if user_id in MEMBERSHIP_CACHE:
-        cached = MEMBERSHIP_CACHE[user_id]
-        if now - cached["ts"] < CACHE_TTL:
-            return cached["missing"]
+    cached = get_cached_membership(user_id)
+    if cached is not None:
+        return cached
 
     missing = []
     for ch in SPONSOR_CHANNELS:
@@ -208,53 +193,8 @@ async def check_user_membership(bot, user_id):
         except Exception:
             missing.append(ch)
 
-    MEMBERSHIP_CACHE[user_id] = {
-        "missing": missing,
-        "ts": now
-    }
+    set_cached_membership(user_id, missing)
     return missing
-# —————— تابع کمکی: گرفتن لینک عضویت (یا ساختن آن) ——————
-async def get_channel_join_link(bot, channel):
-   
-    if str(channel) in CHANNEL_INVITES and CHANNEL_INVITES[str(channel)]:
-        return CHANNEL_INVITES[str(channel)]
-
-    try:
-        chat = await bot.get_chat(chat_id=channel)
-        if getattr(chat, "username", None):
-            return f"https://t.me/{chat.username}"
-    except Exception as e:
-        # ممکن است برای چنل خصوصی این خطا بیاید؛ سپس سعی می‌کنیم invite بسازیم
-        print(f"info: couldn't get chat username for {channel}: {e}")
-
-    try:
-        invite = await bot.create_chat_invite_link(chat_id=channel)
-        return invite.invite_link
-    except Exception as e:
-        print(f"⚠️ couldn't create invite link for {channel}: {e}")
-        return None
-
-# —————— تابع کمکی: ساخت کیبورد join + دکمه Validate ——————
-async def build_join_keyboard(bot, missing_channels, key):
-    """
-    ساخت inline keyboard:
-    - برای هر کانال missing یک دکمه URL برای عضویت تولید می‌کند
-    - در آخر یک دکمه callback برای "من عضو شدم" با callback_data = "check_join:<key>"
-    """
-    buttons = []
-    for ch in missing_channels:
-        link = await get_channel_join_link(bot, ch)
-        label = CHANNEL_TITLES.get(ch, "📢 عضویت در کانال اسپانسر")
-        if link:
-            buttons.append([InlineKeyboardButton(label, url=link)])
-        else:
-            # اگر لینک نداریم، دکمه‌ای بساز که کاربر را راهنمایی کند (بدون URL)
-            buttons.append([InlineKeyboardButton(f"لینک موجود نیست برای {str(ch)}", callback_data=f"no_link:{ch}:{key}")])
-
-    # دکمه "من عضو شدم" (صحت سنجی)
-    buttons.append([InlineKeyboardButton("🔄 بررسی مجدد عضویت", callback_data=f"check_join:{key}")])
-
-    return InlineKeyboardMarkup(buttons)
     
 # —————— Callback handler برای دکمه "من عضو شدم" و پیغام‌های مرتبط ——————
 async def check_join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -328,6 +268,7 @@ app.add_handler(CallbackQueryHandler(check_join_callback, pattern=r"^(check_join
 if __name__ == "__main__":
     # اجرای مانیتورینگ در یک task جدید
     app.run_polling()
+
 
 
 
