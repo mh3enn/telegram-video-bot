@@ -16,13 +16,11 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 # chat_id (-1001234567890) برای کانال خصوصی 
 SPONSOR_CHANNELS = [
     "@fansonly90775",
-    "@Fansonly_TG",
-    "@test2525252545"
+    "@Fansonly_TG"
 ]
 CHANNEL_TITLES = {
     "@fansonly90775": "📢 عضویت در کانال اصلی",
-  "@Fansonly_TG": "📢 عضویت در کانال پشتیبان",
-    "@test2525252545": "test"
+  "@Fansonly_TG": "📢 عضویت در کانال پشتیبان"
 }
 #روش پیاده سازی در چنل اینوایت 
 #مقدار none لینک عضویت و دعوت هست
@@ -266,7 +264,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     kb = await build_join_keyboard(bot, missing, key)
     text = (
-        f"❌ هنوز جوین {len(missing)} کانال هستید\n"
+        f"❌ هنوز جوین {len(missing)} کانال نشدي\n"
         "👇 لطفاً برای دریافت فایل در کانال‌های زیر عضو شوید"
      )
     await bot.send_message(
@@ -415,4 +413,3 @@ app.add_handler(CallbackQueryHandler(check_join_callback, pattern=r"^(check_join
 if __name__ == "__main__":
     # اجرای مانیتورینگ در یک task جدید
     app.run_polling()
-
