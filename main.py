@@ -1,12 +1,10 @@
 import json
 import asyncio
-import asyncpg
 import time
-from datetime import datetime
-from zoneinfo import ZoneInfo
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes, CommandHandler, CallbackQueryHandler
 from telegram.ext import filters as tg_filters
+from db import init_db
 from config import (
     TOKEN,
     ADMIN_GROUP_ID,
@@ -43,78 +41,6 @@ def set_cached_membership(user_id, channel, is_member):
 
 def is_admin(user_id: int) -> bool:
     return user_id == BOT_ADMIN_ID
-
-async def init_db_schema(pool):
-    async with pool.acquire() as conn:
-        await conn.execute(f"""
-            CREATE TABLE IF NOT EXISTS {DB_TABLE} (
-                id SERIAL PRIMARY KEY,
-                message_id TEXT UNIQUE,
-                file_id TEXT NOT NULL,
-                title TEXT,
-                caption TEXT,
-                deep_link TEXT,
-                thumbnail_file_id TEXT,
-                created_at TIMESTAMPTZ DEFAULT now()
-            );
-        """)
-
-async def save_video_record(pool, message_id, file_id, title, caption, deep_link, thumbnail_file_id=None):
-    async with pool.acquire() as conn:
-        row = await conn.fetchrow(f"""
-            INSERT INTO {DB_TABLE} (message_id, file_id, title, caption, deep_link, thumbnail_file_id, created_at)
-            VALUES ($1,$2,$3,$4,$5,$6,$7)
-            ON CONFLICT (message_id) DO UPDATE
-            SET file_id = EXCLUDED.file_id,
-                title = EXCLUDED.title,
-                caption = EXCLUDED.caption,
-                deep_link = EXCLUDED.deep_link,
-                thumbnail_file_id = EXCLUDED.thumbnail_file_id,
-                created_at = EXCLUDED.created_at
-            RETURNING id, message_id;
-        """, str(message_id), file_id, title, caption, deep_link, thumbnail_file_id, datetime.now(ZoneInfo("Asia/Tehran")))
-        return row  # row['id'], row['message_id']
-    
-async def get_total_videos(pool):
-    async with pool.acquire() as conn:
-        return await conn.fetchval(f"SELECT COUNT(*) FROM {DB_TABLE}")
-
-async def get_total_downloads(pool):
-    async with pool.acquire() as conn:
-        return await conn.fetchval("SELECT COUNT(*) FROM download_logs")
-
-async def get_today_downloads(pool):
-    async with pool.acquire() as conn:
-        return await conn.fetchval("""
-            SELECT COUNT(*) FROM download_logs
-            WHERE downloaded_at::date = CURRENT_DATE
-        """)
-
-async def get_video_record(pool, message_id):
-    async with pool.acquire() as conn:
-        row = await conn.fetchrow(f"SELECT * FROM {DB_TABLE} WHERE message_id = $1", str(message_id))
-        return row
-    
-async def init_download_log_schema(pool):
-    async with pool.acquire() as conn:
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS download_logs (
-                id SERIAL PRIMARY KEY,
-                video_key TEXT NOT NULL,
-                user_id BIGINT NOT NULL,
-                downloaded_at TIMESTAMPTZ DEFAULT now()
-            );
-        """)
-async def log_download(pool, video_key, user_id):
-    async with pool.acquire() as conn:
-        await conn.execute(
-            """
-            INSERT INTO download_logs (video_key, user_id)
-            VALUES ($1, $2)
-            """,
-            video_key,
-            user_id
-        )
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -226,7 +152,7 @@ async def delete_after_delay(bot, chat_id, message_id, delay=30):
     except:
         pass
 async def on_startup(application):
-    application.db = await asyncpg.create_pool(DATABASE_URL)
+    await init_db(application, DATABASE_URL)
 
     await init_db_schema(application.db)
     await init_download_log_schema(application.db)
@@ -426,3 +352,4 @@ app.add_handler(CallbackQueryHandler(check_join_callback, pattern=r"^(check_join
 if __name__ == "__main__":
     # اجرای مانیتورینگ در یک task جدید
     app.run_polling()
+
