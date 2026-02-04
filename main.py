@@ -16,11 +16,11 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 # chat_id (-1001234567890) برای کانال خصوصی 
 SPONSOR_CHANNELS = [
     "@fansonly90775",
-    "@FansonlyBackup"
+    "@@Fansonly_TG"
 ]
 CHANNEL_TITLES = {
     "@fansonly90775": "📢 عضویت در کانال اصلی",
-  "@FansonlyBackup": "📢 عضویت در کانال پشتیبان"
+  "@@Fansonly_TG": "📢 عضویت در کانال پشتیبان"
 }
 #روش پیاده سازی در چنل اینوایت 
 #مقدار none لینک عضویت و دعوت هست
@@ -232,7 +232,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text( "👋 سلام!\n\n"
             "📥 این ربات برای دریافت ویدیوها استفاده می‌شود.\n"
             "🔗لطفا برای دریافت فیلم عضو کانال زیر بشین\n\n"
-            "@FansonlyBackup"
+            "@@Fansonly_TG"
         )
         return
 
@@ -254,7 +254,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             caption=(
                 "📥 این فایل توی Saved Messages ذخیره کن\n"
                 "فایل بعد از ۳۰ ثانیه حذف میشه ⏱\n\n"
-                "@FansonlyBackup"
+                "@@Fansonly_TG"
             )
             
         )
@@ -385,7 +385,7 @@ async def check_join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             f"🎬 {row['title'] or ''}\n\n"
             "📥 این فایل را در Saved Messages ذخیره کنید\n"
             "⏱ این فایل بعد از ۳۰ ثانیه حذف می‌شود\n\n"
-            "@FansonlyBackup"
+            "@@Fansonly_TG"
         )
     )
 
