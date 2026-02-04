@@ -16,11 +16,13 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 # chat_id (-1001234567890) برای کانال خصوصی 
 SPONSOR_CHANNELS = [
     "@fansonly90775",
-    "@Fansonly_TG"
+    "@Fansonly_TG",
+    "@test2525252545"
 ]
 CHANNEL_TITLES = {
     "@fansonly90775": "📢 عضویت در کانال اصلی",
-  "@Fansonly_TG": "📢 عضویت در کانال پشتیبان"
+  "@Fansonly_TG": "📢 عضویت در کانال پشتیبان",
+    "@test2525252545": "test"
 }
 #روش پیاده سازی در چنل اینوایت 
 #مقدار none لینک عضویت و دعوت هست
@@ -413,3 +415,4 @@ app.add_handler(CallbackQueryHandler(check_join_callback, pattern=r"^(check_join
 if __name__ == "__main__":
     # اجرای مانیتورینگ در یک task جدید
     app.run_polling()
+
