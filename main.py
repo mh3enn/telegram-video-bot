@@ -249,6 +249,31 @@ async def check_join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     asyncio.create_task(
         delete_after_delay(bot, user_id, msg.message_id, 30)
     )
+    async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Error handler سراسری برای کل ربات
+    """
+    error = context.error
+
+    print("❌ Exception caught:")
+    print(error)
+
+    # اگر خطا مربوط به Conflict (چند instance) بود
+    if "Conflict" in str(error):
+        print("⚠️ Bot conflict detected (multiple instances running)")
+        return
+
+    # اگر update وجود داشت و کاربر داشت
+    try:
+        if update and isinstance(update, Update):
+            if update.effective_chat:
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text="⚠️ خطایی رخ داد. لطفاً چند لحظه بعد دوباره تلاش کنید."
+                )
+    except Exception:
+        # حتی اگر ارسال پیام هم شکست خورد، ربات نباید کرش کند
+        pass
 # ================================
 # ساخت اپلیکیشن و هندلرها
 # ================================
@@ -262,12 +287,14 @@ app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("stats", stats))
 app.add_handler(MessageHandler(tg_filters.Chat(ADMIN_GROUP_ID) & (tg_filters.VIDEO | tg_filters.Document.ALL), handle_admin_group_media))
 app.add_handler(CallbackQueryHandler(check_join_callback, pattern=r"^(check_join:|no_link:)"))
+app.add_error_handler(error_handler)
 # ================================
 # اجرای مانیتورینگ فایل با asyncio
 # ================================
 if __name__ == "__main__":
     # اجرای مانیتورینگ در یک task جدید
     app.run_polling()
+
 
 
 
