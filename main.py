@@ -32,6 +32,26 @@ CHANNEL_INVITES = {}
 # =======================
 DB_TABLE = "videos"
 
+MEMBERSHIP_CACHE = {}
+CACHE_TTL = 300  # 5 دقیقه (ثانیه)
+
+def get_cached_membership(user_id, channel):
+    key = (user_id, channel)
+    entry = MEMBERSHIP_CACHE.get(key)
+
+    if not entry:
+        return None
+
+    is_member, ts = entry
+    if time.time() - ts > CACHE_TTL:
+        del MEMBERSHIP_CACHE[key]
+        return None
+
+    return is_member
+
+def set_cached_membership(user_id, channel, is_member):
+    MEMBERSHIP_CACHE[(user_id, channel)] = (is_member, time.time())
+
 def is_admin(user_id: int) -> bool:
     return user_id == int(os.getenv("BOT_ADMIN_ID", "0"))
 
@@ -275,20 +295,33 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # —————— تابع کمکی: بررسی عضویت کاربر در کانال‌ها ——————
 async def check_user_membership(bot, user_id):
     """
-    برمی‌گرداند: لیست channel_ids که کاربر هنوز عضو آنها نیست.
+    خروجی: لیست کانال‌هایی که کاربر عضو آن‌ها نیست
     """
     missing = []
+
     for ch in SPONSOR_CHANNELS:
-        try:
-            # get_chat_member ممکن است Exception بدهد اگر ربات عضو کانال نباشد یا دسترسی نداشته باشد
-            member = await bot.get_chat_member(chat_id=ch, user_id=user_id)
-            status = member.status  # "member", "administrator", "left", ...
-            if status not in ("member", "administrator", "creator"):
+        # 1️⃣ اول cache
+        cached = get_cached_membership(user_id, ch)
+        if cached is not None:
+            if not cached:
                 missing.append(ch)
+            continue
+
+        # 2️⃣ اگر cache نبود → API
+        try:
+            member = await bot.get_chat_member(chat_id=ch, user_id=user_id)
+            status = member.status
+            is_member = status in ("member", "administrator", "creator")
         except Exception as e:
-            # اگر نتوانیم وضعیت را چک کنیم، فرض می‌کنیم عضو نیستند (و لاگ می‌زنیم)
-            print(f"⚠️ خطا در get_chat_member برای {ch}: {e}")
+            print(f"⚠️ get_chat_member error {ch}: {e}")
+            is_member = False
+
+        # 3️⃣ ذخیره در cache
+        set_cached_membership(user_id, ch, is_member)
+
+        if not is_member:
             missing.append(ch)
+
     return missing
 
 # —————— تابع کمکی: گرفتن لینک عضویت (یا ساختن آن) ——————
