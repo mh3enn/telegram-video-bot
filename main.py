@@ -1,4 +1,3 @@
-import os
 import json
 import asyncio
 import asyncpg
@@ -8,33 +7,22 @@ from zoneinfo import ZoneInfo
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes, CommandHandler, CallbackQueryHandler
 from telegram.ext import filters as tg_filters
-TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_GROUP_ID = int(os.getenv("ADMIN_GROUP_ID"))
-DATABASE_URL = os.getenv("DATABASE_URL")
-
-# —————— پیکربندی کانال‌های اسپانسر ——————
-#username ("@mychannel") برای کانال پابلیک
-# chat_id (-1001234567890) برای کانال خصوصی 
-SPONSOR_CHANNELS = [
-    "@fansonly90775",
-    "@Fansonly_TG"
-]
-CHANNEL_TITLES = {
-    "@fansonly90775": "📢 عضویت در کانال اصلی",
-  "@Fansonly_TG": "📢 عضویت در کانال پشتیبان"
-}
-#روش پیاده سازی در چنل اینوایت 
-#مقدار none لینک عضویت و دعوت هست
-# "-1001234567890": "https://t.me/joinchat/AAAAAExampleInvite",
-    # "@PublicChannelName": None 
-CHANNEL_INVITES = {}
+from config import (
+    TOKEN,
+    ADMIN_GROUP_ID,
+    DATABASE_URL,
+    BOT_ADMIN_ID,
+    SPONSOR_CHANNELS,
+    CHANNEL_TITLES,
+    CHANNEL_INVITES,
+    CACHE_TTL,
+)
 # =======================
 # دیتابیس: schema + helpers
 # =======================
 DB_TABLE = "videos"
 
 MEMBERSHIP_CACHE = {}
-CACHE_TTL = 300  # 5 دقیقه (ثانیه)
 
 def get_cached_membership(user_id, channel):
     key = (user_id, channel)
