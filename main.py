@@ -4,7 +4,15 @@ import time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes, CommandHandler, CallbackQueryHandler
 from telegram.ext import filters as tg_filters
-from db import init_db
+from db import (
+    init_db,
+    save_video_record,
+    get_video_record,
+    log_download,
+    get_total_videos,
+    get_total_downloads,
+    get_today_downloads,
+)
 from config import (
     TOKEN,
     ADMIN_GROUP_ID,
@@ -15,29 +23,8 @@ from config import (
     CHANNEL_INVITES,
     CACHE_TTL,
 )
-# =======================
-# دیتابیس: schema + helpers
-# =======================
-DB_TABLE = "videos"
 
 MEMBERSHIP_CACHE = {}
-
-def get_cached_membership(user_id, channel):
-    key = (user_id, channel)
-    entry = MEMBERSHIP_CACHE.get(key)
-
-    if not entry:
-        return None
-
-    is_member, ts = entry
-    if time.time() - ts > CACHE_TTL:
-        del MEMBERSHIP_CACHE[key]
-        return None
-
-    return is_member
-
-def set_cached_membership(user_id, channel, is_member):
-    MEMBERSHIP_CACHE[(user_id, channel)] = (is_member, time.time())
 
 def is_admin(user_id: int) -> bool:
     return user_id == BOT_ADMIN_ID
@@ -301,13 +288,6 @@ async def check_join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     # خواندن ویدیو از دیتابیس
     row = await get_video_record(context.application.db, key)
     if not row:
-        await bot.send_message(
-            chat_id=user_id,
-            text="❌ متأسفانه فایل پیدا نشد."
-        )
-        return
-    row = await get_video_record(context.application.db, key)
-    if not row:
         await q.edit_message_text("❌ متأسفانه فایل پیدا نشد.")
         return
 
@@ -348,5 +328,6 @@ app.add_handler(CallbackQueryHandler(check_join_callback, pattern=r"^(check_join
 if __name__ == "__main__":
     # اجرای مانیتورینگ در یک task جدید
     app.run_polling()
+
 
 
