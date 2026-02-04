@@ -130,11 +130,24 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ================================
 # ذخیره file_id بر اساس لینک پست کانال
 # ================================
-def build_missing_text(missing_count):
-    if missing_count == 1:
-        return "❌ هنوز جوین 1 از کانال های زیر نشدی\n👇 لطفاً برای دریافت فیلم جوین کانال های زیر بشید"
-    else:
-        return f"❌ هنوز جوین {missing_count} کانال زیر نشدی\n👇 لطفاً برای دریافت فیلم جوین کانال های زیر بشید"
+def build_missing_text(missing_channels):
+    count = len(missing_channels)
+
+    header = (
+        f"❌ هنوز عضو {count} کانال هستید:\n\n"
+        if count > 1
+        else "❌ شما عضو 1 کانال شديد:\n\n"
+    )
+
+    lines = []
+    for ch in missing_channels:
+        title = CHANNEL_TITLES.get(ch, str(ch))
+        lines.append(f"• {title}")
+
+    footer = "\n\n👇 بعد از عضویت، روی «🔄 بررسی مجدد عضویت» بزنید"
+
+    return header + "\n".join(lines) + footer
+
 # ----------------------------------------
 # Handler جدید: دریافت فایل از گروه ادمین
 # ----------------------------------------
@@ -360,7 +373,7 @@ async def check_join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     if missing:
         kb = await build_join_keyboard(bot, missing, key)
-        text = build_missing_text(len(missing))
+        text = build_missing_text(missing)
         await q.edit_message_text(text=text, reply_markup=kb)
         return
     # خواندن ویدیو از دیتابیس
