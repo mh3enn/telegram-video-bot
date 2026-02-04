@@ -297,8 +297,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def check_user_membership(bot, user_id):
     now = time.time()
 
-    if user_id in membership_cache:
-        cached = membership_cache[user_id]
+    if user_id in MEMBERSHIP_CACHE:
+        cached = MEMBERSHIP_CACHE[user_id]
         if now - cached["ts"] < CACHE_TTL:
             return cached["missing"]
 
@@ -311,12 +311,11 @@ async def check_user_membership(bot, user_id):
         except Exception:
             missing.append(ch)
 
-    membership_cache[user_id] = {
+    MEMBERSHIP_CACHE[user_id] = {
         "missing": missing,
         "ts": now
     }
     return missing
-
 # —————— تابع کمکی: گرفتن لینک عضویت (یا ساختن آن) ——————
 async def get_channel_join_link(bot, channel):
    
