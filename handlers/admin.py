@@ -2,10 +2,10 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from config import ADMIN_GROUP_ID
 from db import (
-save_video_record,
-get_total_videos,
-get_total_downloads,
-get_today_downloads
+    save_video_record,
+    get_total_videos,
+    get_total_downloads,
+    get_today_downloads
 )
 
 async def handle_admin_group_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -32,7 +32,8 @@ async def handle_admin_group_media(update: Update, context: ContextTypes.DEFAULT
     title = caption.splitlines()[0] if caption else "بدون عنوان"
 
     key = f"{msg.chat.id}_{msg.message_id}"
-    bot_username = context.bot.username or (await context.bot.get_me()).username
+    me = await context.bot.get_me()
+    bot_username = me.username
     deep_link = f"https://t.me/{bot_username}?start={key}"
 
     await save_video_record(
@@ -47,11 +48,13 @@ async def handle_admin_group_media(update: Update, context: ContextTypes.DEFAULT
     await context.bot.send_message(
         chat_id=ADMIN_GROUP_ID,
         text=f"🎬 {title}\n\n🔗 لینک دریافت:\n{deep_link}"
-  )
+    )
+
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    total_videos = await get_total_videos()
-    total_downloads = await get_total_downloads()
-    today_downloads = await get_today_downloads()
+    pool = context.application.db
+    total_videos = await get_total_videos(pool)
+    total_downloads = await get_total_downloads(pool)
+    today_downloads = await get_today_downloads(pool)
 
     text = (
         f"📊 Bot Stats\n\n"
@@ -59,5 +62,4 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"⬇️ Total downloads: {total_downloads}\n"
         f"📅 Today downloads: {today_downloads}"
     )
-
     await update.message.reply_text(text)
