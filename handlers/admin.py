@@ -3,7 +3,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from config import ADMIN_GROUP_ID
-from video_demo import send_video_thumbnails
+from video_demo import generate_and_send_demo
 from db import (
     get_total_videos,
     get_total_downloads,
@@ -35,10 +35,6 @@ async def handle_admin_group_media(update: Update, context: ContextTypes.DEFAULT
     caption = msg.caption or ""
     title = caption.splitlines()[0] if caption else "بدون عنوان"
     
-    thumbs = []
-    if msg.video and msg.video.thumbnails:
-          thumbs = msg.video.thumbnails[:5]  # حداکثر ۵ تا
-        
     key = f"{msg.chat.id}_{msg.message_id}"
     bot_username = context.bot.username or (await context.bot.get_me()).username
     deep_link = f"https://t.me/{bot_username}?start={key}"
@@ -54,21 +50,32 @@ async def handle_admin_group_media(update: Update, context: ContextTypes.DEFAULT
     )
 
     # ✅ ارسال مجدد خود ویدیو
-    sent = await context.bot.send_video(
+    await context.bot.send_video(
         chat_id=ADMIN_GROUP_ID,
         video=file_id,
         caption=f"🎬 {title}\n\n🔗 لینک دریافت:\n{deep_link}"
     )
 
-    if thumbs:
-        asyncio.create_task(
-            send_video_thumbnails(
-                bot=context.bot,
-                thumbnails=thumbs,
-                deep_link=deep_link,
-                chat_id=ADMIN_GROUP_ID
-        )
-    )
+    # 🎞 ساخت و ارسال دمو (۱۰ فریم از ویدیو)
+    if msg.video:
+        try:
+            file = await context.bot.get_file(file_id)
+            temp_path = f"/tmp/{file_id}.mp4"
+            await file.download_to_drive(temp_path)
+            
+            asyncio.create_task(
+                generate_and_send_demo(
+                    bot=context.bot,
+                    video_file_path=temp_path,
+                    deep_link=deep_link,
+                    chat_id=ADMIN_GROUP_ID,
+                    max_size_mb=50,   # حداکثر 50 مگ برای دمو
+                    num_frames=10     # ۱۰ فریم
+                )
+            )
+        except Exception as e:
+            print("❌ Demo generation error:", e)
+
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     total_videos = await get_total_videos(context.application.db)
     total_downloads = await get_total_downloads(context.application.db)
