@@ -45,10 +45,10 @@ async def build_join_keyboard(bot, missing_channels, key):
         InlineKeyboardButton(
             "🔄 بررسی مجدد عضویت",
             callback_data=f"check_join:{key}"
+        )
     ])
 
     return InlineKeyboardMarkup(buttons)
-    
 async def delete_after_delay(bot, chat_id, message_id, delay=30):
     await asyncio.sleep(delay)
     try:
