@@ -8,10 +8,11 @@ from utils import build_join_keyboard, build_missing_text
 from config import SPONSOR_CHANNELS
 
 
-async def check_user_membership(bot, user_id):
-    cached = get_cached_membership(user_id)
-    if cached is not None:
-        return cached
+async def check_user_membership(bot, user_id, use_cache=True):
+    if use_cache:
+        cached = get_cached_membership(user_id)
+        if cached is not None:
+            return cached
 
     missing = []
     for ch in SPONSOR_CHANNELS:
@@ -22,10 +23,11 @@ async def check_user_membership(bot, user_id):
         except Exception:
             missing.append(ch)
 
-    set_cached_membership(user_id, missing)
+    if use_cache:
+        set_cached_membership(user_id, missing)
+
     return missing
-
-
+    
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text(
