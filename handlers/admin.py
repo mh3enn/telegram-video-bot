@@ -3,9 +3,13 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from config import ADMIN_GROUP_ID
-from db import save_video_record
 from video_demo import generate_and_send_demo
-
+from db import (
+    get_total_videos,
+    get_total_downloads,
+    get_today_downloads,
+    save_video_record,
+)
 
 async def handle_admin_group_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
@@ -61,3 +65,16 @@ async def handle_admin_group_media(update: Update, context: ContextTypes.DEFAULT
             chat_id=ADMIN_GROUP_ID
         )
     )
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    total_videos = await get_total_videos(context.application.db)
+    total_downloads = await get_total_downloads(context.application.db)
+    today_downloads = await get_today_downloads(context.application.db)
+
+    text = (
+        "📊 Bot Stats\n\n"
+        f"🎬 Total videos: {total_videos}\n"
+        f"⬇️ Total downloads: {total_downloads}\n"
+        f"📅 Today downloads: {today_downloads}"
+    )
+
+    await update.message.reply_text(text)
