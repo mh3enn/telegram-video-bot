@@ -1,6 +1,7 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 from config import ADMIN_GROUP_ID
+from video_demo import generate_and_send_demo
 from db import (
     save_video_record,
     get_total_videos,
