@@ -47,7 +47,11 @@ async def check_join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     msg = await bot.send_video(
         chat_id=user_id,
         video=row["file_id"],
-        caption="📥 فایل ارسال شد"
+        caption=(
+            "📥 این فایل را در Saved Messages ذخیره کنید\n"
+            "⏱ فایل بعد از ۳۰ ثانیه حذف می‌شود\n\n"
+            "@Fansonly_TG"
+        )
     )
 
     await log_download(context.application.db, key, user_id)
