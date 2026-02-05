@@ -4,7 +4,7 @@ from telegram.ext import ContextTypes
 
 from db import get_video_record, log_download
 from cache import get_cached_membership, set_cached_membership
-from utils import build_join_keyboard, build_missing_text
+from utils import build_join_keyboard, build_missing_text,delete_after_delay
 from config import SPONSOR_CHANNELS
 
 
