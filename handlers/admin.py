@@ -1,8 +1,12 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 from config import ADMIN_GROUP_ID
-from db import save_video_record
-
+from db import (
+save_video_record,
+get_total_videos,
+get_total_downloads,
+get_today_downloads
+)
 
 async def handle_admin_group_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
