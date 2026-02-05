@@ -1,10 +1,24 @@
 import os
 
+def get_int_env(name: str, default: int | None = None) -> int:
+    value = os.getenv(name)
+    if value is None:
+        if default is None:
+            raise RuntimeError(f"Environment variable {name} is not set")
+        return default
+    return int(value)
+
 # ===== Bot & Environment =====
 TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_GROUP_ID = int(os.getenv("ADMIN_GROUP_ID"))
+if not TOKEN:
+    raise RuntimeError("BOT_TOKEN is not set")
+
+ADMIN_GROUP_ID = get_int_env("ADMIN_GROUP_ID")
+BOT_ADMIN_ID = get_int_env("BOT_ADMIN_ID", 0)
+
 DATABASE_URL = os.getenv("DATABASE_URL")
-BOT_ADMIN_ID = int(os.getenv("BOT_ADMIN_ID", "0"))
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is not set")
 
 # ===== Sponsor Channels =====
 SPONSOR_CHANNELS = [
