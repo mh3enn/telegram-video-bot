@@ -4,7 +4,7 @@ from telegram.ext import ContextTypes
 
 from db import get_video_record, log_download
 from cache import get_cached_membership, set_cached_membership
-from utils import build_join_keyboard, build_missing_text,delete_after_delay
+from utils import build_join_keyboard, build_missing_text, delete_after_delay
 from config import SPONSOR_CHANNELS
 
 
@@ -27,7 +27,8 @@ async def check_user_membership(bot, user_id, use_cache=True):
         set_cached_membership(user_id, missing)
 
     return missing
-    
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text(
@@ -74,4 +75,4 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id=update.effective_chat.id,
         text=text,
         reply_markup=kb
-  )
+    )
