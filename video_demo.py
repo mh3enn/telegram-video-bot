@@ -3,7 +3,7 @@ import random
 from tempfile import NamedTemporaryFile
 from telegram import InputMediaPhoto
 
-from moviepy.editor import VideoFileClip
+from moviepy import VideoFileClip
 
 async def generate_and_send_demo(bot, video_file_path, deep_link, chat_id, max_size_mb=50, num_frames=10):
     try:
