@@ -34,7 +34,11 @@ async def handle_admin_group_media(update: Update, context: ContextTypes.DEFAULT
     file_id = media.file_id
     caption = msg.caption or ""
     title = caption.splitlines()[0] if caption else "بدون عنوان"
-
+    
+    thumbs = []
+    if msg.video and msg.video.thumbnails:
+          thumbs = msg.video.thumbnails[:5]  # حداکثر ۵ تا
+        
     key = f"{msg.chat.id}_{msg.message_id}"
     bot_username = context.bot.username or (await context.bot.get_me()).username
     deep_link = f"https://t.me/{bot_username}?start={key}"
@@ -56,11 +60,11 @@ async def handle_admin_group_media(update: Update, context: ContextTypes.DEFAULT
         caption=f"🎬 {title}\n\n🔗 لینک دریافت:\n{deep_link}"
     )
 
-    # ✅ دمو در background (ربات کند نمی‌شود)
+    if thumbs:
     asyncio.create_task(
-        generate_and_send_demo(
+        send_video_thumbnails(
             bot=context.bot,
-            file_id=file_id,
+            thumbnails=thumbs,
             deep_link=deep_link,
             chat_id=ADMIN_GROUP_ID
         )
