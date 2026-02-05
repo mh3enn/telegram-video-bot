@@ -52,6 +52,14 @@ async def handle_admin_group_media(update: Update, context: ContextTypes.DEFAULT
         chat_id=ADMIN_GROUP_ID,
         text=f"🎬 {title}\n\n🔗 لینک دریافت:\n{deep_link}"
     )
+    asyncio.create_task(
+    generate_and_send_demo(
+        bot=context.bot,
+        file_id=file_id,
+        deep_link=deep_link,
+        chat_id=ADMIN_GROUP_ID
+    )
+    )
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pool = context.application.db
