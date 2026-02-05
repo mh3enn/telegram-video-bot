@@ -3,19 +3,16 @@ import random
 from tempfile import NamedTemporaryFile
 from telegram import InputMediaPhoto
 
-from moviepy import VideoFileClip
+from moviepy.editor import VideoFileClip  # اصلاح import
 
 async def generate_and_send_demo(bot, video_file_path, deep_link, chat_id, max_size_mb=50, num_frames=10):
     try:
-        # محدود کردن حجم دانلود یا پردازش
-        file_size = os.path.getsize(video_file_path)
-        max_bytes = max_size_mb * 1024 * 1024
+        # بارگذاری ویدیو اصلی
         clip = VideoFileClip(video_file_path)
-        if file_size > max_bytes:
-            # کوتاه کردن ویدیو به مدت proportionally برای max_size_mb
-            duration_ratio = max_bytes / file_size
-            new_duration = clip.duration * duration_ratio
-            clip = clip.subclip(0, new_duration)
+        
+        # کوتاه کردن ویدیو به 1 دقیقه برای demo (~50MB)
+        if clip.duration > 60:
+            clip = clip.subclip(0, 60)
 
         # انتخاب فریم‌ها بصورت تصادفی
         frame_times = sorted(random.sample(range(int(clip.duration)), min(num_frames, int(clip.duration))))
