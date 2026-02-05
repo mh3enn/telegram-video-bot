@@ -3,7 +3,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from config import ADMIN_GROUP_ID
-from video_demo import generate_and_send_demo
+from video_demo import send_video_thumbnails
 from db import (
     get_total_videos,
     get_total_downloads,
