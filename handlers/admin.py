@@ -48,3 +48,16 @@ async def handle_admin_group_media(update: Update, context: ContextTypes.DEFAULT
         chat_id=ADMIN_GROUP_ID,
         text=f"🎬 {title}\n\n🔗 لینک دریافت:\n{deep_link}"
   )
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    total_videos = await get_total_videos()
+    total_downloads = await get_total_downloads()
+    today_downloads = await get_today_downloads()
+
+    text = (
+        f"📊 Bot Stats\n\n"
+        f"🎬 Total videos: {total_videos}\n"
+        f"⬇️ Total downloads: {total_downloads}\n"
+        f"📅 Today downloads: {today_downloads}"
+    )
+
+    await update.message.reply_text(text)
