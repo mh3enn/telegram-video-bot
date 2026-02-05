@@ -1,3 +1,5 @@
+import asyncio
+from video_demo import generate_and_send_demo
 from telegram import Update
 from telegram.ext import ContextTypes
 from config import ADMIN_GROUP_ID
