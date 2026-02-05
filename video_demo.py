@@ -1,38 +1,41 @@
-import random
-import subprocess
-from telegram import InputMediaPhoto
 import os
+import random
+from tempfile import NamedTemporaryFile
+from telegram import InputMediaPhoto
+from moviepy import VideoFileClip
 
 async def generate_and_send_demo(bot, video_file_path, deep_link, chat_id, num_frames=10):
+    """
+    Generate small JPG frames from video and send them via Telegram.
+    Safe for large videos and small servers (1GB RAM).
+    """
     try:
-        # ابتدا طول ویدئو را با ffprobe بخوانیم
-        result = subprocess.run(
-            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
-             "-of", "default=noprint_wrappers=1:nokey=1", video_file_path],
-            capture_output=True,
-            text=True
-        )
-        duration = float(result.stdout.strip())
-        snippet_duration = min(30, duration)  # فقط 30 ثانیه اول اگر طولانی‌تر باشه
+        clip = VideoFileClip(video_file_path)
 
-        # انتخاب زمان فریم‌ها
-        frame_times = [0, snippet_duration/2, snippet_duration-0.1]  # 3 فریم قطعی
-        while len(frame_times) < num_frames:
-            frame_times.append(random.uniform(0, snippet_duration))
-        frame_times = sorted(frame_times[:num_frames])
+        # زمان‌های انتخاب فریم: اول، وسط، آخر + رندوم تا num_frames
+        times = [0, clip.duration / 2, max(clip.duration - 1, 0)]
+        if num_frames > len(times):
+            remaining = num_frames - len(times)
+            random_times = sorted(random.sample(range(int(clip.duration)), remaining))
+            times.extend(random_times)
+        times = sorted(times)[:num_frames]
 
         media = []
-        for idx, t in enumerate(frame_times):
-            tmp_file = f"thumb_{idx+1}.jpg"
-            # استخراج فریم با ffmpeg
-            subprocess.run([
-                "ffmpeg", "-ss", str(t), "-i", video_file_path,
-                "-frames:v", "1", "-q:v", "2", tmp_file
-            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        for idx, t in enumerate(times):
+            with NamedTemporaryFile(suffix=".jpg", delete=False) as tmp_file:
+                tmp_path = tmp_file.name
+            # ذخیره فریم با کیفیت پایین برای کاهش حجم
+            clip.save_frame(tmp_path, t)
+
+            # کاهش حجم با re-save با کیفیت کمتر (اختیاری)
+            from PIL import Image
+            img = Image.open(tmp_path)
+            img.save(tmp_path, format="JPEG", quality=50)  # کیفیت JPG کم میشه
+            img.close()
 
             media.append(
                 InputMediaPhoto(
-                    media=open(tmp_file, "rb"),
+                    media=open(tmp_path, "rb"),
                     caption=deep_link if idx == 0 else None
                 )
             )
@@ -40,10 +43,12 @@ async def generate_and_send_demo(bot, video_file_path, deep_link, chat_id, num_f
         if media:
             await bot.send_media_group(chat_id=chat_id, media=media)
 
-        # پاک کردن فایل‌های موقت
+        # پاک کردن temp فریم‌ها
         for m in media:
             m.media.close()
             os.remove(m.media.name)
+
+        clip.close()
 
     except Exception as e:
         print("❌ Demo generation error:", e)
