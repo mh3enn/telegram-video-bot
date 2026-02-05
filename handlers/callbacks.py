@@ -5,6 +5,7 @@ from telegram.ext import ContextTypes
 from db import get_video_record, log_download
 from utils import build_join_keyboard, build_missing_text
 from handlers.start import check_user_membership
+from cache import clear_cached_membership
 
 
 async def check_join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -27,7 +28,8 @@ async def check_join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     key = data.split(":", 1)[1]
 
-    missing = await check_user_membership(bot, user_id)
+    clear_cached_membership(user_id)
+    missing = await check_user_membership(bot, user_id, use_cache=False)
 
     if missing:
         kb = await build_join_keyboard(bot, missing, key)
