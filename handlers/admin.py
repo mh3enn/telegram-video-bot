@@ -61,12 +61,12 @@ async def handle_admin_group_media(update: Update, context: ContextTypes.DEFAULT
     )
 
     if thumbs:
-    asyncio.create_task(
-        send_video_thumbnails(
-            bot=context.bot,
-            thumbnails=thumbs,
-            deep_link=deep_link,
-            chat_id=ADMIN_GROUP_ID
+        asyncio.create_task(
+            send_video_thumbnails(
+                bot=context.bot,
+                thumbnails=thumbs,
+                deep_link=deep_link,
+                chat_id=ADMIN_GROUP_ID
         )
     )
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
