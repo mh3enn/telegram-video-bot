@@ -1,22 +1,20 @@
-import os
 import random
-from tempfile import NamedTemporaryFile
+import os
 from telegram import InputMediaPhoto
+from tempfile import NamedTemporaryFile
+from moviepy import VideoFileClip
 
-from moviepy import VideoFileClip  # اصلاح import
-
-async def generate_and_send_demo(bot, video_file_path, deep_link, chat_id, max_size_mb=50, num_frames=10):
+async def generate_and_send_demo(bot, video_file_path, deep_link, chat_id, num_frames=10, snippet_duration=30):
     try:
-        # بارگذاری ویدیو اصلی
+        # فقط snippet_duration ثانیه اول ویدیو رو load کن
         clip = VideoFileClip(video_file_path)
-        
-        # کوتاه کردن ویدیو به 1 دقیقه برای demo (~50MB)
-        if clip.duration > 60:
-            clip = clip.subclip(0, 60)
+        duration = min(clip.duration, snippet_duration)
+        clip = clip.subclip(0, duration)
 
-        # انتخاب فریم‌ها بصورت تصادفی
-        frame_times = sorted(random.sample(range(int(clip.duration)), min(num_frames, int(clip.duration))))
+        # انتخاب فریم‌ها بصورت تصادفی در طول snippet
+        frame_times = sorted(random.sample(range(int(duration)), min(num_frames, int(duration))))
         media = []
+
         for idx, t in enumerate(frame_times):
             frame_path = f"thumb_{idx+1}.jpg"
             clip.save_frame(frame_path, t)
@@ -27,15 +25,15 @@ async def generate_and_send_demo(bot, video_file_path, deep_link, chat_id, max_s
                 )
             )
 
-        # ارسال گروهی فریم‌ها
         if media:
             await bot.send_media_group(chat_id=chat_id, media=media)
 
-        # پاک کردن temp فریم‌ها
+        # پاک کردن فایل‌های temp
         for m in media:
             m.media.close()
             os.remove(m.media.name)
 
         clip.close()
+
     except Exception as e:
         print("❌ Demo generation error:", e)
