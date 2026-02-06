@@ -1,5 +1,5 @@
 import asyncio
-from telegram import Update
+from telegram import Update,InputMediaPhoto
 from telegram.ext import ContextTypes
 
 from config import ADMIN_GROUP_ID
@@ -8,6 +8,7 @@ from db import (
     get_total_downloads,
     get_today_downloads,
     save_video_record,
+    save_media_group,
 )
 
 async def handle_admin_group_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -68,3 +69,38 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     await update.message.reply_text(text)
+
+
+async def handle_media_group(update, context):
+    msg = update.message
+    if  not msg or not msg.media_group_id:
+        return
+
+    bot = context.bot
+    chat_id = msg.chat.id
+    media_group_id = msg.media_group_id
+    photos = msg.photo  # list of PhotoSize
+
+    if len(photos) != 10:
+        return  # فقط واکنش به گروه ۱۰ عکس
+
+    # واکنش به پیام
+    await msg.reply_text("👍 10 عکس دریافت شد!")
+
+    # ساخت دیپ لینک
+    me = await bot.get_me()
+    deep_link = f"https://t.me/{me.username}?start={media_group_id}"
+
+    # ذخیره file_idها
+    file_ids = [p.file_id for p in photos]
+    await save_media_group(context.application.db, media_group_id, file_ids, deep_link)
+
+    # ارسال media group همراه دیپ لینک
+    media = [
+        InputMediaPhoto(
+            file_id=f,
+            caption=deep_link if i == 0 else None  # فقط اولین عکس کپشن دارد
+        )
+        for i, f in enumerate(file_ids)
+    ]
+    await bot.send_media_group(chat_id=chat_id, media=media)
