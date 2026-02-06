@@ -1,6 +1,9 @@
 import asyncio
+from collections import defaultdict
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from config import CHANNEL_TITLES, CHANNEL_INVITES, SPONSOR_CHANNELS
+_media_group_buffer = defaultdict(list)
+_media_group_locks = {}
 
 def build_missing_text(count: int) -> str:
     if count == 1:
@@ -55,3 +58,21 @@ async def delete_after_delay(bot, chat_id, message_id, delay=30):
         await bot.delete_message(chat_id=chat_id, message_id=message_id)
     except Exception:
         pass
+async def collect_media_group(message, timeout=1.5):
+    """
+    عکس‌ها را بر اساس media_group_id جمع می‌کند
+    """
+    group_id = message.media_group_id
+    _media_group_buffer[group_id].append(message)
+
+    if group_id not in _media_group_locks:
+        _media_group_locks[group_id] = asyncio.Lock()
+
+        async with _media_group_locks[group_id]:
+            await asyncio.sleep(timeout)
+
+            messages = _media_group_buffer.pop(group_id, [])
+            _media_group_locks.pop(group_id, None)
+            return messages
+
+    return None
