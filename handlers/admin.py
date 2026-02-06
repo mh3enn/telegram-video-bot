@@ -3,6 +3,7 @@ from telegram import Update,InputMediaPhoto
 from telegram.ext import ContextTypes
 
 from config import ADMIN_GROUP_ID
+from utils import collect_media_group
 from db import (
     get_total_videos,
     get_total_downloads,
@@ -70,37 +71,43 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(text)
 
-
-async def handle_media_group(update, context):
+async def handle_media_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
-    if  not msg or not msg.media_group_id:
+    if not msg or not msg.media_group_id:
+        return
+
+    messages = await collect_media_group(msg)
+    if not messages or len(messages) != 10:
         return
 
     bot = context.bot
     chat_id = msg.chat.id
     media_group_id = msg.media_group_id
-    photos = msg.photo  # list of PhotoSize
 
-    if len(photos) != 10:
-        return  # فقط واکنش به گروه ۱۰ عکس
+    await msg.reply_text("✅ 10 عکس دریافت شد")
 
-    # واکنش به پیام
-    await msg.reply_text("👍 10 عکس دریافت شد!")
+    file_ids = [m.photo[-1].file_id for m in messages]
 
-    # ساخت دیپ لینک
     me = await bot.get_me()
     deep_link = f"https://t.me/{me.username}?start={media_group_id}"
 
-    # ذخیره file_idها
-    file_ids = [p.file_id for p in photos]
-    await save_media_group(context.application.db, media_group_id, file_ids, deep_link)
+    await save_media_group(
+        context.application.db,
+        media_group_id,
+        file_ids,
+        deep_link
+    )
 
-    # ارسال media group همراه دیپ لینک
     media = [
         InputMediaPhoto(
-            file_id=f,
-            caption=deep_link if i == 0 else None  # فقط اولین عکس کپشن دارد
+            media=fid,
+            caption=f"📥 دریافت آلبوم\n🔗 {deep_link}" if i == 0 else None
         )
-        for i, f in enumerate(file_ids)
+        for i, fid in enumerate(file_ids)
     ]
-    await bot.send_media_group(chat_id=chat_id, media=media)
+
+    await bot.send_media_group(
+        chat_id=chat_id,
+        media=media,
+        reply_to_message_id=msg.message_id
+    )
