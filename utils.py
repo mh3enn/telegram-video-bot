@@ -58,21 +58,16 @@ async def delete_after_delay(bot, chat_id, message_id, delay=30):
         await bot.delete_message(chat_id=chat_id, message_id=message_id)
     except Exception:
         pass
-async def collect_media_group(message, timeout=1.5):
-    """
-    عکس‌ها را بر اساس media_group_id جمع می‌کند
-    """
-    group_id = message.media_group_id
-    _media_group_buffer[group_id].append(message)
+async def collect_media_group(message, timeout=1.2):
+    gid = message.media_group_id
+    _media_groups[gid].append(message)
 
-    if group_id not in _media_group_locks:
-        _media_group_locks[group_id] = asyncio.Lock()
+    if gid not in _locks:
+        _locks[gid] = asyncio.Lock()
 
-        async with _media_group_locks[group_id]:
+        async with _locks[gid]:
             await asyncio.sleep(timeout)
-
-            messages = _media_group_buffer.pop(group_id, [])
-            _media_group_locks.pop(group_id, None)
-            return messages
-
+            msgs = _media_groups.pop(gid, [])
+            _locks.pop(gid, None)
+            return msgs
     return None
