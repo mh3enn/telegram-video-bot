@@ -10,7 +10,7 @@ from telegram.ext import filters as tg_filters
 from config import TOKEN, ADMIN_GROUP_ID, DATABASE_URL
 from db import init_db
 from handlers.start import start
-from handlers.admin import handle_admin_group_media, stats
+from handlers.admin import handle_admin_group_media, stats,handle_media_group
 from handlers.callbacks import check_join_callback
 
 
@@ -52,7 +52,11 @@ def main():
             pattern=r"^(check_join:|no_link:)"
         )
     )
-
+    app.add_handler(MessageHandler(
+    tg_filters.Chat(ADMIN_GROUP_ID) & tg_filters.PHOTO,
+    handle_media_group
+         )
+    )
     app.add_error_handler(error_handler)
 
     app.run_polling()
@@ -60,3 +64,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
