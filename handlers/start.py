@@ -87,9 +87,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     file_ids = group["file_ids"]
+    deep_link = group.get("deep_link")
 
     media = [
-        InputMediaPhoto(media=fid, caption=key if i == 0 else None)
+        InputMediaPhoto(
+            media=fid,
+            caption=deep_link if i == 0 else None
+        )
         for i, fid in enumerate(file_ids)
     ]
 
