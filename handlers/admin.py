@@ -71,43 +71,45 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(text)
 
-async def handle_media_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
+media_buffer = defaultdict(list)
+
+async def handle_media_group(update, context):
     msg = update.message
-    if not msg or not msg.media_group_id:
+    if not msg or not msg.media_group_id or not msg.photo:
         return
 
-    messages = await collect_media_group(msg)
-    if not messages or len(messages) != 10:
-        return
-
-    bot = context.bot
+    gid = msg.media_group_id
     chat_id = msg.chat.id
-    media_group_id = msg.media_group_id
 
-    await msg.reply_text("✅ 10 عکس دریافت شد")
+    # ذخیره file_id عکس
+    media_buffer[gid].append(msg.photo[-1].file_id)
 
-    file_ids = [m.photo[-1].file_id for m in messages]
+    # صبر کوتاه برای جمع شدن همه عکس‌ها
+    await asyncio.sleep(1)
 
-    me = await bot.get_me()
-    deep_link = f"https://t.me/{me.username}?start={media_group_id}"
+    # فقط وقتی دقیقاً ۱۰ عکس شد
+    if len(media_buffer[gid]) != 10:
+        return
 
-    await save_media_group(
-        context.application.db,
-        media_group_id,
-        file_ids,
-        deep_link
-    )
+    file_ids = media_buffer.pop(gid)
 
+    # دیپ لینک
+    me = await context.bot.get_me()
+    deep_link = f"https://t.me/{me.username}?start=mg_{gid}"
+
+    # ذخیره در دیتابیس
+    await save_media_group(gid, file_ids, deep_link)
+
+    # ارسال مجدد همون ۱۰ عکس با کپشن
     media = [
         InputMediaPhoto(
             media=fid,
-            caption=f"📥 دریافت آلبوم\n🔗 {deep_link}" if i == 0 else None
+            caption=deep_link if i == 0 else None
         )
         for i, fid in enumerate(file_ids)
     ]
 
-    await bot.send_media_group(
+    await context.bot.send_media_group(
         chat_id=chat_id,
-        media=media,
-        reply_to_message_id=msg.message_id
+        media=media
     )
