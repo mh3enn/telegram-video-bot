@@ -128,3 +128,17 @@ async def save_media_group(pool, media_group_id, file_ids, deep_link):
                 file_id,
                 deep_link
         )
+async def get_media_group(pool, media_group_id):
+    """
+    برگردوندن لیست file_ids مربوط به یک media_group_id
+    """
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            f"SELECT file_id FROM {MEDIA_GROUP_TABLE} WHERE media_group_id = $1",
+            media_group_id
+        )
+        if not rows:
+            return None
+        return {
+            "file_ids": [row["file_id"] for row in rows]
+        }
