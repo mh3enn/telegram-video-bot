@@ -1,8 +1,8 @@
 import asyncio
-from telegram import Update
+from telegram import Update, InputMediaPhoto
 from telegram.ext import ContextTypes
 
-from db import get_video_record, log_download
+from db import get_video_record, log_download, get_media_group
 from cache import get_cached_membership, set_cached_membership
 from utils import build_join_keyboard, build_missing_text, delete_after_delay
 from config import SPONSOR_CHANNELS
@@ -40,17 +40,25 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     key = context.args[0]
-    row = await get_video_record(context.application.db, key)
-    if not row:
-        await update.message.reply_text("❌ فایل موردنظر پیدا نشد")
-        return
-
-    user_id = update.effective_user.id
     bot = context.bot
+    user_id = update.effective_user.id
 
+    # ================== اول بررسی عضویت ==================
     missing = await check_user_membership(bot, user_id)
 
-    if not missing:
+    if missing:
+        kb = await build_join_keyboard(bot, missing, key)
+        text = build_missing_text(len(missing))
+        await bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=text,
+            reply_markup=kb
+        )
+        return
+
+    # ================== VIDEO ==================
+    row = await get_video_record(context.application.db, key)
+    if row:
         msg = await bot.send_video(
             chat_id=update.effective_chat.id,
             video=row["file_id"],
@@ -68,11 +76,24 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    kb = await build_join_keyboard(bot, missing, key)
-    text = build_missing_text(len(missing))
+    # ================== MEDIA GROUP (PHOTOS) ==================
+    group = await get_media_group(context.application.db, key)
+    if not group:
+        await update.message.reply_text("❌ فایل موردنظر پیدا نشد")
+        return
 
-    await bot.send_message(
+    file_ids = group["file_ids"]
+
+    media = []
+    for i, fid in enumerate(file_ids):
+        media.append(
+            InputMediaPhoto(
+                media=fid,
+                caption=group["deep_link"] if i == 0 else None
+            )
+        )
+
+    await bot.send_media_group(
         chat_id=update.effective_chat.id,
-        text=text,
-        reply_markup=kb
+        media=media
     )
