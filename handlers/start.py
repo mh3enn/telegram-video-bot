@@ -92,12 +92,19 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     media = [
         InputMediaPhoto(
             media=fid,
-            caption=deep_link if i == 0 else None
+            caption=(
+                "📥 این دمو را در Saved Messages ذخیره کنید\n"
+                "⏱دمو بعد از ۳۰ ثانیه حذف می‌شود\n\n"
+                "@Fansonly_TG"
         )
         for i, fid in enumerate(file_ids)
     ]
 
-    await bot.send_media_group(
+    messages = await bot.send_media_group(
         chat_id=chat_id,
         media=media
+    )
+    for m in messages:
+        asyncio.create_task(
+            delete_after_delay(bot, chat_id, m.message_id)
     )
