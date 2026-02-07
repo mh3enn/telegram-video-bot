@@ -96,8 +96,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "📥 این دمو را در Saved Messages ذخیره کنید\n"
                 "⏱دمو بعد از ۳۰ ثانیه حذف می‌شود\n\n"
                 "@Fansonly_TG"
-        )
+           )
         for i, fid in enumerate(file_ids)
+       )
     ]
 
     messages = await bot.send_media_group(
