@@ -90,16 +90,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     deep_link = group.get("deep_link")
 
     media = [
-        InputMediaPhoto(
-            media=fid,
-            caption=(
-                "📥 این دمو را در Saved Messages ذخیره کنید\n"
-                "⏱دمو بعد از ۳۰ ثانیه حذف می‌شود\n\n"
-                "@Fansonly_TG"
-           )
+    InputMediaPhoto(
+        media=fid,
+        caption=(
+            "📥 این دمو را در Saved Messages ذخیره کنید\n"
+            "⏱ دمو بعد از ۳۰ ثانیه حذف می‌شود\n\n"
+            "@Fansonly_TG"
+            ) if i == 0 else None
+        )
         for i, fid in enumerate(file_ids)
-       )
     ]
+
 
     messages = await bot.send_media_group(
         chat_id=chat_id,
