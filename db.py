@@ -8,7 +8,7 @@ async def init_db(application, database_url: str):
     pool = await asyncpg.create_pool(database_url, min_size=1, max_size=10)
     application.db = pool
     await init_db_schema(pool)
-    await init_media_group_table(pool)  # اضافه شد
+    await init_media_group_table(pool)  # جدول مدیا گروپ
 
 # ========================== Videos ==========================
 async def init_db_schema(pool):
@@ -103,42 +103,44 @@ async def init_media_group_table(pool):
         await conn.execute(f"""
             CREATE TABLE IF NOT EXISTS {MEDIA_GROUP_TABLE} (
                 id SERIAL PRIMARY KEY,
-                media_group_id TEXT NOT NULL,
+                key TEXT NOT NULL,
                 file_id TEXT NOT NULL,
                 deep_link TEXT,
                 created_at TIMESTAMPTZ DEFAULT now(),
-                UNIQUE(media_group_id, file_id)
+                UNIQUE(key, file_id)
             );
         """)
 
-async def save_media_group(pool, media_group_id, file_ids, deep_link):
-    """
-    ذخیره media group در دیتابیس
-    file_ids: list[str]
-    """
+async def save_media_group(pool, key, file_ids, deep_link):
     async with pool.acquire() as conn:
         for file_id in file_ids:
             await conn.execute(
-                f"""
-                INSERT INTO {MEDIA_GROUP_TABLE} (media_group_id, file_id, deep_link, created_at)
-                VALUES ($1,$2,$3,now())
-                ON CONFLICT (media_group_id, file_id) DO NOTHING
+                """
+                INSERT INTO media_groups (key, file_id, deep_link)
+                VALUES ($1,$2,$3)
+                ON CONFLICT (key, file_id) DO NOTHING
                 """,
-                media_group_id,
+                key,
                 file_id,
                 deep_link
-        )
-async def get_media_group(pool, media_group_id):
-    """
-    برگردوندن لیست file_ids مربوط به یک media_group_id
-    """
+            )
+
+async def get_media_group(pool, key):
     async with pool.acquire() as conn:
         rows = await conn.fetch(
-            f"SELECT file_id FROM {MEDIA_GROUP_TABLE} WHERE media_group_id = $1",
-            media_group_id
+            """
+            SELECT file_id, deep_link
+            FROM media_groups
+            WHERE key = $1
+            ORDER BY id
+            """,
+            key
         )
+
         if not rows:
             return None
+
         return {
-            "file_ids": [row["file_id"] for row in rows]
+            "file_ids": [r["file_id"] for r in rows],
+            "deep_link": rows[0]["deep_link"],
         }
