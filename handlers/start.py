@@ -9,6 +9,7 @@ from config import SPONSOR_CHANNELS
 
 
 async def check_user_membership(bot, user_id, use_cache=True):
+    """بررسی عضویت کاربر در کانال‌های اسپانسر"""
     if use_cache:
         cached = get_cached_membership(user_id)
         if cached is not None:
@@ -30,6 +31,7 @@ async def check_user_membership(bot, user_id, use_cache=True):
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """هندلر استارت با چک عضویت و ارسال فایل‌ها"""
     if not context.args:
         await update.message.reply_text(
             "👋 سلام!\n\n"
@@ -41,26 +43,26 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     key = context.args[0]
     bot = context.bot
+    chat_id = update.effective_chat.id
     user_id = update.effective_user.id
 
-    # ================== اول بررسی عضویت ==================
+    # ================== ۱. چک عضویت ==================
     missing = await check_user_membership(bot, user_id)
-
     if missing:
         kb = await build_join_keyboard(bot, missing, key)
         text = build_missing_text(len(missing))
         await bot.send_message(
-            chat_id=update.effective_chat.id,
+            chat_id=chat_id,
             text=text,
             reply_markup=kb
         )
         return
 
-    # ================== VIDEO ==================
+    # ================== ۲. ارسال ویدیو ==================
     row = await get_video_record(context.application.db, key)
     if row:
         msg = await bot.send_video(
-            chat_id=update.effective_chat.id,
+            chat_id=chat_id,
             video=row["file_id"],
             caption=(
                 "📥 این فایل را در Saved Messages ذخیره کنید\n"
@@ -69,14 +71,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         )
 
+        # لاگ دانلود
         await log_download(context.application.db, key, user_id)
 
+        # حذف بعد از ۳۰ ثانیه
         asyncio.create_task(
-            delete_after_delay(bot, update.effective_chat.id, msg.message_id)
+            delete_after_delay(bot, chat_id, msg.message_id)
         )
         return
 
-    # ================== MEDIA GROUP (PHOTOS) ==================
+    # ================== ۳. ارسال گروه عکس (Media Group) ==================
     group = await get_media_group(context.application.db, key)
     if not group:
         await update.message.reply_text("❌ فایل موردنظر پیدا نشد")
@@ -84,16 +88,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     file_ids = group["file_ids"]
 
-    media = []
-    for i, fid in enumerate(file_ids):
-        media.append(
-            InputMediaPhoto(
-                media=fid,
-                caption=group["deep_link"] if i == 0 else None
-            )
-        )
+    media = [
+        InputMediaPhoto(media=fid, caption=group["deep_link"] if i == 0 else None)
+        for i, fid in enumerate(file_ids)
+    ]
 
     await bot.send_media_group(
-        chat_id=update.effective_chat.id,
+        chat_id=chat_id,
         media=media
     )
