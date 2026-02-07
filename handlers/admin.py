@@ -99,7 +99,12 @@ async def handle_media_group(update, context):
     deep_link = f"https://t.me/{me.username}?start=mg_{gid}"
 
     # ذخیره در دیتابیس
-    await save_media_group(gid, file_ids, deep_link)
+    await save_media_group(
+    context.application.db,
+    gid,
+    file_ids,
+    deep_link
+    )
 
     # ارسال مجدد همون ۱۰ عکس با کپشن
     media = [
