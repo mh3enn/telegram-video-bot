@@ -96,6 +96,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await bot.send_media_group(
         chat_id=chat_id,
         media=media
+    )        return
+
+    file_ids = group["file_ids"]
+
+    media = [
+        InputMediaPhoto(media=fid, caption=key if i == 0 else None)
+        for i, fid in enumerate(file_ids)
+    ]
+
+    await bot.send_media_group(
+        chat_id=chat_id,
+        media=media
     )            "👋 سلام!\n\n"
             "📥 این ربات برای دریافت ویدیوها استفاده می‌شود.\n"
             "🔗 لطفاً برای دریافت فیلم عضو کانال زیر شوید\n\n"
