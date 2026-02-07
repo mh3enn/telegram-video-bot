@@ -54,8 +54,8 @@ def main():
     )
     app.add_handler(
     MessageHandler(
-        filters.Chat(ADMIN_GROUP_ID) & filters.PHOTO,
-        handle_media_group_reply
+        tg_filters.Chat(ADMIN_GROUP_ID) & tg_filters.PHOTO,
+        handle_media_group
         )
     )
     app.add_error_handler(error_handler)
@@ -65,5 +65,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
