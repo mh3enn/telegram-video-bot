@@ -4,11 +4,11 @@ from telegram.ext import ContextTypes
 from io import BytesIO
 
 from db import backup_all_data, restore_from_backup
-from config import ADMIN_GROUP_ID
+from config import ADMIN_USER_ID
 
 async def backup_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """هندلر /backup برای گرفتن بکاپ دیتابیس و ارسال فایل JSON"""
-    if update.effective_user.id != ADMIN_GROUP_ID:
+    if update.effective_user.id != ADMIN_USER_ID:
         await update.message.reply_text("❌ دسترسی ندارید")
         return
 
