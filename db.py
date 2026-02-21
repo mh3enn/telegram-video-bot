@@ -136,17 +136,41 @@ async def backup_all_data(pool):
             FROM {MEDIA_GROUP_TABLE};
         """)
 
-async def restore_from_backup(pool):
+async def restore_from_backup(pool, backup_data):
+    """بازگردانی داده‌ها از JSON دریافتی"""
+    videos = backup_data.get("videos", [])
+    media_groups = backup_data.get("media_groups", [])
+
     async with pool.acquire() as conn:
-        await conn.execute(f"""
-            INSERT INTO {DB_TABLE} (message_id, file_id, title, caption, deep_link, thumbnail_file_id, created_at)
-            SELECT message_id, file_id, title, caption, deep_link, thumbnail_file_id, created_at
-            FROM {BACKUP_VIDEOS_TABLE}
-            ON CONFLICT (message_id) DO NOTHING;
-        """)
-        await conn.execute(f"""
-            INSERT INTO {MEDIA_GROUP_TABLE} (key, file_id, deep_link, created_at)
-            SELECT key, file_id, deep_link, created_at
-            FROM {BACKUP_MEDIA_GROUP_TABLE}
-            ON CONFLICT (key, file_id) DO NOTHING;
-        """)
+        # بازگردانی ویدیوها
+        for vid in videos:
+            await conn.execute(
+                f"""
+                INSERT INTO {DB_TABLE} 
+                (message_id, file_id, title, caption, deep_link, thumbnail_file_id, created_at)
+                VALUES ($1,$2,$3,$4,$5,$6,$7)
+                ON CONFLICT (message_id) DO NOTHING;
+                """,
+                vid["message_id"],
+                vid["file_id"],
+                vid.get("title"),
+                vid.get("caption"),
+                vid.get("deep_link"),
+                vid.get("thumbnail_file_id"),
+                vid.get("created_at"),
+            )
+
+        # بازگردانی مدیا گروپ‌ها
+        for mg in media_groups:
+            await conn.execute(
+                f"""
+                INSERT INTO {MEDIA_GROUP_TABLE} 
+                (key, file_id, deep_link, created_at)
+                VALUES ($1,$2,$3,$4)
+                ON CONFLICT (key, file_id) DO NOTHING;
+                """,
+                mg["key"],
+                mg["file_id"],
+                mg.get("deep_link"),
+                mg.get("created_at"),
+            )
