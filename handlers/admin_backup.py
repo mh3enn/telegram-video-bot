@@ -13,7 +13,7 @@ def serialize_row(row):
         if isinstance(v, (datetime,)):
             d[k] = v.isoformat()  # تبدیل به رشته ISO
     return d
-    
+
 async def backup_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """هندلر /backup برای گرفتن بکاپ دیتابیس و ارسال فایل JSON"""
     if update.effective_user.id != ADMIN_USER_ID:
