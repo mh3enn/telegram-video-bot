@@ -15,7 +15,7 @@ if not TOKEN:
 
 ADMIN_GROUP_ID = get_int_env("ADMIN_GROUP_ID")
 BOT_ADMIN_ID = get_int_env("BOT_ADMIN_ID", 0)
-
+ADMIN_USER_ID =get_int_env("ADMIN_USER_ID")
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL is not set")
@@ -35,3 +35,4 @@ CHANNEL_INVITES = {}
 
 # ===== Cache =====
 CACHE_TTL = 300  # seconds
+
