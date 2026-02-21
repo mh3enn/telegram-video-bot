@@ -54,10 +54,19 @@ def main():
             pattern=r"^(check_join:|no_link:)"
         )
     )
+    # هندلر مدیا گروپ (عکس)
     app.add_handler(
-    MessageHandler(
-        tg_filters.Chat(ADMIN_GROUP_ID) & tg_filters.PHOTO,
-        handle_media_group,handle_restore_file
+        MessageHandler(
+            tg_filters.Chat(ADMIN_GROUP_ID) & tg_filters.PHOTO,
+            handle_media_group
+        )
+    )
+    # هندلر ریستور (فقط فایل JSON در چت ادمین)
+    app.add_handler(
+        MessageHandler(
+            tg_filters.Chat(ADMIN_GROUP_ID) &
+            tg_filters.Document.FileExtension("json"),
+            handle_restore_file
         )
     )
     app.add_error_handler(error_handler)
@@ -67,8 +76,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
