@@ -12,7 +12,7 @@ from db import init_db
 from handlers.start import start
 from handlers.admin import handle_admin_group_media, stats,handle_media_group
 from handlers.callbacks import check_join_callback
-from handlers.admin_backup import backup_command, restore_command
+from handlers.admin_backup import backup_command, restore_command,handle_restore_file
 
 
 async def on_startup(app):
@@ -57,7 +57,7 @@ def main():
     app.add_handler(
     MessageHandler(
         tg_filters.Chat(ADMIN_GROUP_ID) & tg_filters.PHOTO,
-        handle_media_group
+        handle_media_group,handle_restore_file
         )
     )
     app.add_error_handler(error_handler)
@@ -67,6 +67,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
