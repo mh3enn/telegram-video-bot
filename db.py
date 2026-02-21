@@ -2,13 +2,16 @@ import asyncpg
 from datetime import datetime
 
 DB_TABLE = "videos"
-MEDIA_GROUP_TABLE = "media_groups"  # جدول برای media group
+MEDIA_GROUP_TABLE = "media_groups"
+BACKUP_VIDEOS_TABLE = "backup_videos"
+BACKUP_MEDIA_GROUP_TABLE = "backup_media_groups"
 
 async def init_db(application, database_url: str):
     pool = await asyncpg.create_pool(database_url, min_size=1, max_size=10)
     application.db = pool
     await init_db_schema(pool)
-    await init_media_group_table(pool)  # جدول مدیا گروپ
+    await init_media_group_table(pool)
+    await init_backup_tables(pool)
 
 # ========================== Videos ==========================
 async def init_db_schema(pool):
@@ -34,54 +37,29 @@ async def init_db_schema(pool):
             );
         """)
 
-async def save_video_record(
-    pool,
-    message_id,
-    file_id,
-    title,
-    caption,
-    deep_link,
-    thumbnail_file_id=None
-):
+async def save_video_record(pool, message_id, file_id, title, caption, deep_link, thumbnail_file_id=None):
     if not message_id:
         raise ValueError("message_id is required")
     async with pool.acquire() as conn:
-        return await conn.fetchrow(
-            f"""
-            INSERT INTO {DB_TABLE}
-            (message_id, file_id, title, caption, deep_link, thumbnail_file_id)
+        return await conn.fetchrow(f"""
+            INSERT INTO {DB_TABLE} (message_id, file_id, title, caption, deep_link, thumbnail_file_id)
             VALUES ($1,$2,$3,$4,$5,$6)
             ON CONFLICT (message_id) DO UPDATE
-            SET
-                file_id = EXCLUDED.file_id,
+            SET file_id = EXCLUDED.file_id,
                 title = EXCLUDED.title,
                 caption = EXCLUDED.caption,
                 deep_link = EXCLUDED.deep_link,
                 thumbnail_file_id = EXCLUDED.thumbnail_file_id
             RETURNING id, message_id;
-            """,
-            str(message_id),
-            file_id,
-            title,
-            caption,
-            deep_link,
-            thumbnail_file_id,
-        )
+        """, str(message_id), file_id, title, caption, deep_link, thumbnail_file_id)
 
 async def get_video_record(pool, message_id):
     async with pool.acquire() as conn:
-        return await conn.fetchrow(
-            f"SELECT * FROM {DB_TABLE} WHERE message_id = $1",
-            str(message_id),
-        )
+        return await conn.fetchrow(f"SELECT * FROM {DB_TABLE} WHERE message_id = $1", str(message_id))
 
 async def log_download(pool, video_key, user_id):
     async with pool.acquire() as conn:
-        await conn.execute(
-            "INSERT INTO download_logs (video_key, user_id) VALUES ($1, $2)",
-            video_key,
-            user_id,
-        )
+        await conn.execute("INSERT INTO download_logs (video_key, user_id) VALUES ($1, $2)", video_key, user_id)
 
 async def get_total_videos(pool):
     async with pool.acquire() as conn:
@@ -93,9 +71,7 @@ async def get_total_downloads(pool):
 
 async def get_today_downloads(pool):
     async with pool.acquire() as conn:
-        return await conn.fetchval(
-            "SELECT COUNT(*) FROM download_logs WHERE downloaded_at::date = CURRENT_DATE"
-        )
+        return await conn.fetchval("SELECT COUNT(*) FROM download_logs WHERE downloaded_at::date = CURRENT_DATE")
 
 # ========================== Media Group ==========================
 async def init_media_group_table(pool):
@@ -114,33 +90,30 @@ async def init_media_group_table(pool):
 async def save_media_group(pool, key, file_ids, deep_link):
     async with pool.acquire() as conn:
         for file_id in file_ids:
-            await conn.execute(
-                """
+            await conn.execute("""
                 INSERT INTO media_groups (key, file_id, deep_link)
                 VALUES ($1,$2,$3)
                 ON CONFLICT (key, file_id) DO NOTHING
-                """,
-                key,
-                file_id,
-                deep_link
-            )
+            """, key, file_id, deep_link)
 
 async def get_media_group(pool, key):
     async with pool.acquire() as conn:
-        rows = await conn.fetch(
-            """
+        rows = await conn.fetch("""
             SELECT file_id, deep_link
             FROM media_groups
             WHERE key = $1
             ORDER BY id
-            """,
-            key
-        )
+        """, key)
 
         if not rows:
             return None
+        return {
+            "file_ids": [r["file_id"] for r in rows],
+            "deep_link": rows[0]["deep_link"],
+        }
+
+# ========================== Backup ==========================
 async def init_backup_tables(pool):
-    """ایجاد جداول بکاپ اگر وجود نداشت"""
     async with pool.acquire() as conn:
         await conn.execute(f"""
             CREATE TABLE IF NOT EXISTS {BACKUP_VIDEOS_TABLE} AS TABLE {DB_TABLE} WITH NO DATA;
@@ -150,19 +123,13 @@ async def init_backup_tables(pool):
         """)
 
 async def backup_all_data(pool):
-    """تمام ویدیوها و مدیا گروپ‌ها را در جداول بکاپ ذخیره می‌کند"""
     async with pool.acquire() as conn:
-        # پاک کردن داده‌های قدیمی
         await conn.execute(f"TRUNCATE {BACKUP_VIDEOS_TABLE}, {BACKUP_MEDIA_GROUP_TABLE} RESTART IDENTITY;")
-
-        # ویدیوها
         await conn.execute(f"""
             INSERT INTO {BACKUP_VIDEOS_TABLE} (message_id, file_id, title, caption, deep_link, thumbnail_file_id, created_at)
             SELECT message_id, file_id, title, caption, deep_link, thumbnail_file_id, created_at
             FROM {DB_TABLE};
         """)
-
-        # مدیا گروپ‌ها
         await conn.execute(f"""
             INSERT INTO {BACKUP_MEDIA_GROUP_TABLE} (key, file_id, deep_link, created_at)
             SELECT key, file_id, deep_link, created_at
@@ -170,24 +137,16 @@ async def backup_all_data(pool):
         """)
 
 async def restore_from_backup(pool):
-    """داده‌های بکاپ را به جداول اصلی برمی‌گرداند"""
     async with pool.acquire() as conn:
-        # ویدیوها
         await conn.execute(f"""
             INSERT INTO {DB_TABLE} (message_id, file_id, title, caption, deep_link, thumbnail_file_id, created_at)
             SELECT message_id, file_id, title, caption, deep_link, thumbnail_file_id, created_at
             FROM {BACKUP_VIDEOS_TABLE}
             ON CONFLICT (message_id) DO NOTHING;
         """)
-
-        # مدیا گروپ‌ها
         await conn.execute(f"""
             INSERT INTO {MEDIA_GROUP_TABLE} (key, file_id, deep_link, created_at)
             SELECT key, file_id, deep_link, created_at
             FROM {BACKUP_MEDIA_GROUP_TABLE}
             ON CONFLICT (key, file_id) DO NOTHING;
         """)
-        return {
-            "file_ids": [r["file_id"] for r in rows],
-            "deep_link": rows[0]["deep_link"],
-        }
