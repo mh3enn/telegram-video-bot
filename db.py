@@ -137,40 +137,45 @@ async def backup_all_data(pool):
         """)
 
 async def restore_from_backup(pool, backup_data):
-    """بازگردانی داده‌ها از JSON دریافتی"""
-    videos = backup_data.get("videos", [])
-    media_groups = backup_data.get("media_groups", [])
-
     async with pool.acquire() as conn:
-        # بازگردانی ویدیوها
-        for vid in videos:
-            await conn.execute(
-                f"""
-                INSERT INTO {DB_TABLE} 
+
+        # -------- VIDEOS --------
+        for video in backup_data.get("videos", []):
+
+            created_at = video.get("created_at")
+            if created_at:
+                created_at = datetime.fromisoformat(created_at)
+
+            await conn.execute("""
+                INSERT INTO videos
                 (message_id, file_id, title, caption, deep_link, thumbnail_file_id, created_at)
                 VALUES ($1,$2,$3,$4,$5,$6,$7)
                 ON CONFLICT (message_id) DO NOTHING;
-                """,
-                vid["message_id"],
-                vid["file_id"],
-                vid.get("title"),
-                vid.get("caption"),
-                vid.get("deep_link"),
-                vid.get("thumbnail_file_id"),
-                vid.get("created_at"),
+            """,
+                video.get("message_id"),
+                video.get("file_id"),
+                video.get("title"),
+                video.get("caption"),
+                video.get("deep_link"),
+                video.get("thumbnail_file_id"),
+                created_at
             )
 
-        # بازگردانی مدیا گروپ‌ها
-        for mg in media_groups:
-            await conn.execute(
-                f"""
-                INSERT INTO {MEDIA_GROUP_TABLE} 
+        # -------- MEDIA GROUP --------
+        for media in backup_data.get("media_groups", []):
+
+            created_at = media.get("created_at")
+            if created_at:
+                created_at = datetime.fromisoformat(created_at)
+
+            await conn.execute("""
+                INSERT INTO media_groups
                 (key, file_id, deep_link, created_at)
                 VALUES ($1,$2,$3,$4)
                 ON CONFLICT (key, file_id) DO NOTHING;
-                """,
-                mg["key"],
-                mg["file_id"],
-                mg.get("deep_link"),
-                mg.get("created_at"),
+            """,
+                media.get("key"),
+                media.get("file_id"),
+                media.get("deep_link"),
+                created_at
             )
