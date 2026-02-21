@@ -34,7 +34,7 @@ async def backup_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ خطا در گرفتن بکاپ: {e}")
 
 
-async def handle_restore_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def restore_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """بازگردانی بکاپ وقتی فایل JSON فرستاده شد"""
     msg = update.message
     if not msg:
