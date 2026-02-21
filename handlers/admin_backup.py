@@ -6,6 +6,14 @@ from io import BytesIO
 from db import backup_all_data, restore_from_backup
 from config import ADMIN_USER_ID
 
+def serialize_row(row):
+    """تبدیل رکورد دیتابیس به دیکشنری و تبدیل datetime به رشته"""
+    d = dict(row)
+    for k, v in d.items():
+        if isinstance(v, (datetime,)):
+            d[k] = v.isoformat()  # تبدیل به رشته ISO
+    return d
+    
 async def backup_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """هندلر /backup برای گرفتن بکاپ دیتابیس و ارسال فایل JSON"""
     if update.effective_user.id != ADMIN_USER_ID:
