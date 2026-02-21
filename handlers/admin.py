@@ -1,10 +1,10 @@
 import asyncio
-from telegram import Update,InputMediaPhoto
+from telegram import Update, InputMediaPhoto
 from telegram.ext import ContextTypes
 from collections import defaultdict
 
 from config import ADMIN_GROUP_ID
-from utils import collect_media_group
+from utils import collect_media_group, delete_after_delay
 from db import (
     get_total_videos,
     get_total_downloads,
@@ -13,6 +13,7 @@ from db import (
     save_media_group,
 )
 
+# ======================= ویدیوهای ادمین =======================
 async def handle_admin_group_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     if not msg or msg.chat.id != ADMIN_GROUP_ID:
@@ -33,10 +34,10 @@ async def handle_admin_group_media(update: Update, context: ContextTypes.DEFAULT
         return
 
     media = msg.video or msg.document
-    file_id = media.file_id
     caption = msg.caption or ""
     title = caption.splitlines()[0] if caption else "بدون عنوان"
-    
+
+    # کلید اصلی برای ذخیره و ارسال
     key = f"{msg.chat.id}_{msg.message_id}"
     bot_username = context.bot.username or (await context.bot.get_me()).username
     deep_link = f"https://t.me/{bot_username}?start={key}"
@@ -45,19 +46,25 @@ async def handle_admin_group_media(update: Update, context: ContextTypes.DEFAULT
     await save_video_record(
         context.application.db,
         message_id=key,
-        file_id=file_id,
+        file_id=media.file_id,  # هنوز برای هماهنگی با DB
         title=title,
         caption=caption,
         deep_link=deep_link
     )
 
-    # ✅ ارسال مجدد خود ویدیو
-    await context.bot.send_video(
+    # ✅ ارسال مجدد با copy_message (ضد بن)
+    msg_sent = await context.bot.copy_message(
         chat_id=ADMIN_GROUP_ID,
-        video=file_id,
+        from_chat_id=msg.chat.id,
+        message_id=msg.message_id,
         caption=f"🎬 {title}\n\n🔗 لینک دریافت:\n{deep_link}"
     )
 
+    # حذف بعد از ۳۰ ثانیه
+    asyncio.create_task(delete_after_delay(context.bot, ADMIN_GROUP_ID, msg_sent.message_id))
+
+
+# ======================= آمار =======================
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     total_videos = await get_total_videos(context.application.db)
     total_downloads = await get_total_downloads(context.application.db)
@@ -72,48 +79,54 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(text)
 
+
+# ======================= مدیا گروپ =======================
 MEDIA_BUFFER = {}
 
-async def handle_media_group(update, context):
+async def handle_media_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     if not msg or not msg.media_group_id or not msg.photo:
         return
 
     gid = msg.media_group_id
-    file_id = msg.photo[-1].file_id  # بهترین کیفیت
+    key = f"{msg.chat.id}_{msg.message_id}"  # کلید برای هر عکس
 
     if gid not in MEDIA_BUFFER:
         MEDIA_BUFFER[gid] = []
 
-    MEDIA_BUFFER[gid].append(file_id)
+    MEDIA_BUFFER[gid].append(key)
 
     # هنوز کامل نشده
     if len(MEDIA_BUFFER[gid]) < 10:
         return
 
     # دقیقاً ۱۰ عکس
-    file_ids = MEDIA_BUFFER.pop(gid)
+    keys = MEDIA_BUFFER.pop(gid)
 
     bot = context.bot
     me = await bot.get_me()
     deep_link = f"https://t.me/{me.username}?start={gid}"
 
+    # ذخیره در دیتابیس (کلیدها)
     await save_media_group(
         context.application.db,
         gid,
-        file_ids,
+        keys,
         deep_link
     )
 
-    media = [
-        InputMediaPhoto(
-            media=fid,
+    # ارسال با copy_message برای هر عکس
+    messages = []
+    for i, key in enumerate(keys):
+        source_chat_id, source_message_id = key.split("_")
+        msg_sent = await bot.copy_message(
+            chat_id=msg.chat.id,
+            from_chat_id=int(source_chat_id),
+            message_id=int(source_message_id),
             caption=deep_link if i == 0 else None
         )
-        for i, fid in enumerate(file_ids)
-    ]
+        messages.append(msg_sent)
 
-    await bot.send_media_group(
-        chat_id=msg.chat.id,
-        media=media
-    )
+    # حذف بعد از ۳۰ ثانیه
+    for m in messages:
+        asyncio.create_task(delete_after_delay(bot, msg.chat.id, m.message_id))
