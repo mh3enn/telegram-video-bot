@@ -43,7 +43,7 @@ def main():
     app.add_handler(
         MessageHandler(
             tg_filters.Chat(ADMIN_GROUP_ID) &
-            (tg_filters.VIDEO | tg_filters.Document.ALL),
+            tg_filters.VIDEO,
             handle_admin_group_media
         )
     )
@@ -76,3 +76,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
