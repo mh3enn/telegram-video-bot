@@ -41,11 +41,11 @@ def main():
     app.add_handler(CommandHandler("backup", backup_command))
     app.add_handler(CommandHandler("restore", restore_command))
     app.add_handler(
-        MessageHandler(
-            tg_filters.Chat(ADMIN_GROUP_ID) &
-            tg_filters.VIDEO,
-            handle_admin_group_media
-        )
+    MessageHandler(
+        tg_filters.Chat(ADMIN_GROUP_ID) &
+        (tg_filters.VIDEO | tg_filters.Document.VIDEO),
+        handle_admin_group_media
+       )
     )
 
     app.add_handler(
@@ -76,4 +76,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
