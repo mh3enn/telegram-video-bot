@@ -61,7 +61,7 @@ async def handle_admin_group_media(update: Update, context: ContextTypes.DEFAULT
     )
 
     # حذف بعد از ۳۰ ثانیه
-    asyncio.create_task(delete_after_delay(context.bot, ADMIN_GROUP_ID, msg_sent.message_id))
+    # asyncio.create_task(delete_after_delay(context.bot, ADMIN_GROUP_ID, msg_sent.message_id))
 
 
 # ======================= آمار =======================
