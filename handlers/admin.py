@@ -84,7 +84,6 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 MEDIA_BUFFER = {}
 
 async def handle_media_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print("MEDIA GROUP TRIGGERED", msg.media_group_id)
     msg = update.message
     if not msg or not msg.media_group_id or not msg.photo:
         return
