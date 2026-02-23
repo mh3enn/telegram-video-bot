@@ -89,44 +89,55 @@ async def handle_media_group(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     gid = msg.media_group_id
-    key = f"{msg.chat.id}_{msg.message_id}"  # کلید برای هر عکس
 
+    # اگر اولین عکس آلبومه، تایمر پردازش رو فعال کن
     if gid not in MEDIA_BUFFER:
         MEDIA_BUFFER[gid] = []
+        asyncio.create_task(process_media_group(gid, context))
 
-    MEDIA_BUFFER[gid].append(key)
+    # ذخیره file_id واقعی (بالاترین کیفیت عکس)
+    file_id = msg.photo[-1].file_id
+    MEDIA_BUFFER[gid].append(file_id)
 
-    # هنوز کامل نشده
-    if len(MEDIA_BUFFER[gid]) < 10:
+
+async def process_media_group(gid, context):
+    # صبر کوتاه برای کامل شدن آلبوم
+    await asyncio.sleep(1.2)
+
+    file_ids = MEDIA_BUFFER.pop(gid, [])
+    if not file_ids:
         return
 
-    # دقیقاً ۱۰ عکس
-    keys = MEDIA_BUFFER.pop(gid)
-
     bot = context.bot
+    chat_id = ADMIN_GROUP_ID
+
     me = await bot.get_me()
     deep_link = f"https://t.me/{me.username}?start={gid}"
 
-    # ذخیره در دیتابیس (کلیدها)
+    # ذخیره file_id های واقعی در دیتابیس
     await save_media_group(
         context.application.db,
         gid,
-        keys,
+        file_ids,
         deep_link
     )
 
-    # ارسال با copy_message برای هر عکس
-    messages = []
-    for i, key in enumerate(keys):
-        source_chat_id, source_message_id = key.split("_")
-        msg_sent = await bot.copy_message(
-            chat_id=msg.chat.id,
-            from_chat_id=int(source_chat_id),
-            message_id=int(source_message_id),
-            caption=deep_link if i == 0 else None
+    # ساخت آلبوم واقعی با send_media_group
+    media = [
+        InputMediaPhoto(
+            media=fid,
+            caption=f"🔗 لینک دریافت:\n{deep_link}" if i == 0 else None
         )
-        messages.append(msg_sent)
+        for i, fid in enumerate(file_ids)
+    ]
 
-    # حذف بعد از ۳۰ ثانیه
-    for m in messages:
-        asyncio.create_task(delete_after_delay(bot, msg.chat.id, m.message_id))
+    sent_messages = await bot.send_media_group(
+        chat_id=chat_id,
+        media=media
+    )
+
+    # اگر خواستی داخل گروه حذف نشه اینو کامنت کن
+    #for m in sent_messages:
+     #   asyncio.create_task(
+          #  delete_after_delay(bot, chat_id, m.message_id)
+     #    )
