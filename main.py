@@ -56,10 +56,10 @@ def main():
     )
     # هندلر مدیا گروپ (عکس)
     app.add_handler(
-        MessageHandler(
-            tg_filters.Chat(ADMIN_GROUP_ID) & tg_filters.PHOTO,
-            handle_media_group
-        )
+    MessageHandler(
+        tg_filters.Chat(ADMIN_GROUP_ID),
+        handle_media_group
+       )
     )
     # هندلر ریستور (فقط فایل JSON در چت ادمین)
     app.add_handler(
@@ -76,5 +76,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
